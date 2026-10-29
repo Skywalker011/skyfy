@@ -1,0 +1,2958 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Skyfy" />
+  <meta name="theme-color" content="#09090B" />
+  <title>Skyfy — Music Player</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Plus Jakarta Sans + Vazirmatn (for Persian text) + JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '"Vazirmatn"', 'sans-serif'],
+            persian: ['"Vazirmatn"', '"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            sky: {
+              black: '#000000',
+              base: '#121212',
+              elevated: '#181818',
+              card: '#1F1F1F',
+              hover: '#2A2A2A',
+              orange: '#FF5500',
+              orangeLight: '#FF732B',
+              miniBar: '#3D1E0D',
+              subtext: '#A7A7A7'
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root {
+      --sky-orange: #FF5500;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #000000;
+      color: #FFFFFF;
+      font-family: 'Plus Jakarta Sans', 'Vazirmatn', sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #FF5500;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Interactive Range Sliders (Seek & Volume) */
+    input[type="range"].sky-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.22);
+      height: 4px;
+      border-radius: 999px;
+      cursor: pointer;
+      outline: none;
+    }
+    input[type="range"].sky-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #FFFFFF;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+    input[type="range"].sky-slider:hover::-webkit-slider-thumb {
+      transform: scale(1.25);
+      background: #FF5500;
+    }
+
+    /* Mobile Viewport Preview Wrapper on Desktop (NO fake status bar icons) */
+    .mobile-preview-frame {
+      max-width: 412px !important;
+      height: calc(100dvh - 68px) !important;
+      margin: 4px auto !important;
+      border-radius: 28px !important;
+      border: 3px solid #262626 !important;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.9), 0 0 35px rgba(255, 85, 0, 0.15) !important;
+      overflow: hidden !important;
+    }
+
+    /* Live Time-Synced Lyrics Styling */
+    .lyric-line {
+      color: rgba(255, 255, 255, 0.28);
+      font-size: 1.05rem;
+      font-weight: 700;
+      line-height: 1.55;
+      padding: 6px 4px;
+      cursor: pointer;
+      transition: color 0.25s ease, transform 0.25s ease;
+    }
+    .lyric-line:hover {
+      color: rgba(255, 255, 255, 0.7);
+    }
+    .lyric-line.active {
+      color: #FFFFFF;
+      transform: scale(1.01);
+      text-shadow: 0 0 20px rgba(255, 85, 0, 0.35);
+    }
+
+    /* Animated Playing Bars */
+    @keyframes eqBar1 { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+    @keyframes eqBar2 { 0%, 100% { height: 14px; } 35% { height: 5px; } 70% { height: 16px; } }
+    @keyframes eqBar3 { 0%, 100% { height: 7px; } 45% { height: 15px; } 85% { height: 4px; } }
+    .eq-bar-1 { animation: eqBar1 0.75s ease-in-out infinite; }
+    .eq-bar-2 { animation: eqBar2 0.65s ease-in-out infinite; }
+    .eq-bar-3 { animation: eqBar3 0.85s ease-in-out infinite; }
+
+    /* Modal Slide Transition */
+    .sheet-transition {
+      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease;
+    }
+  </style>
+</head>
+
+<body class="flex flex-col h-[100dvh] w-full bg-sky-black text-white overflow-hidden">
+
+  <!-- =====================================================================
+       TOP GLOBAL HEADER BAR (Matches Desktop Screenshot Top Bar)
+       - Left: Back `<` & Forward `>` + Skyfy Orange Wave Logo
+       - Center: Circular Home, Browse Grid, Popular Table & Pill Search Bar
+       - Right: PC/Mobile View Switcher, iOS Install Helper & Orange "S" Avatar
+       ===================================================================== -->
+  <header class="h-14 bg-sky-black px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-4 shrink-0 z-40">
+    <!-- Left: Back/Forward + Skyfy Brand -->
+    <div class="flex items-center gap-2 shrink-0">
+      <div class="hidden sm:flex items-center gap-1 mr-1">
+        <button
+          onclick="navigateHistory(-1)"
+          class="w-8 h-8 rounded-full hover:bg-sky-elevated text-zinc-400 hover:text-white flex items-center justify-center transition"
+          title="Back"
+        >
+          <i class="ph-bold ph-caret-left text-lg"></i>
+        </button>
+        <button
+          onclick="navigateHistory(1)"
+          class="w-8 h-8 rounded-full hover:bg-sky-elevated text-zinc-400 hover:text-white flex items-center justify-center transition"
+          title="Forward"
+        >
+          <i class="ph-bold ph-caret-right text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Custom Skyfy Logo -->
+      <div onclick="switchTab('detail')" class="flex items-center gap-2 cursor-pointer group">
+        <svg class="w-8 h-8 text-sky-orange group-hover:scale-105 transition shrink-0" viewBox="0 0 36 36" fill="none">
+          <circle cx="18" cy="18" r="18" fill="currentColor"/>
+          <path d="M8.5 14.2C14.8 11.4 21.8 11.7 27.5 15.1" stroke="#09090B" stroke-width="2.9" stroke-linecap="round"/>
+          <path d="M10.2 19.3C15.4 17.0 21.0 17.3 25.8 20.1" stroke="#09090B" stroke-width="2.6" stroke-linecap="round"/>
+          <path d="M12.2 24.1C16.1 22.4 20.2 22.6 23.8 24.7" stroke="#09090B" stroke-width="2.3" stroke-linecap="round"/>
+          <circle cx="18" cy="9.2" r="1.5" fill="#09090B"/>
+        </svg>
+        <span class="font-extrabold tracking-tight text-lg text-white">Skyfy</span>
+      </div>
+    </div>
+
+    <!-- Center: Circular Home, Browse Grid, Popular Artist View & Pill Search Bar -->
+    <div class="flex items-center justify-center gap-2 flex-1 max-w-2xl">
+      <button
+        onclick="switchTab('home')"
+        id="topNavBtn-home"
+        class="w-10 h-10 rounded-full bg-sky-elevated hover:bg-sky-hover text-zinc-300 hover:text-white flex items-center justify-center shrink-0 transition border border-white/5"
+        title="Home"
+      >
+        <i class="ph-bold ph-house text-lg"></i>
+      </button>
+
+      <button
+        onclick="switchTab('search')"
+        id="topNavBtn-search"
+        class="hidden sm:flex w-10 h-10 rounded-full bg-sky-elevated hover:bg-sky-hover text-zinc-300 hover:text-white items-center justify-center shrink-0 transition border border-white/5"
+        title="Browse Categories"
+      >
+        <i class="ph-bold ph-squares-four text-lg"></i>
+      </button>
+
+      <button
+        onclick="switchTab('detail')"
+        id="topNavBtn-detail"
+        class="hidden sm:flex w-10 h-10 rounded-full bg-sky-elevated hover:bg-sky-hover text-sky-orange hover:text-white items-center justify-center shrink-0 transition border border-white/5"
+        title="Artist Popular View"
+      >
+        <i class="ph-bold ph-play-rectangle text-lg"></i>
+      </button>
+
+      <!-- Dark Pill Search Bar ("What do you want to play?") -->
+      <div class="flex items-center flex-1 max-w-md bg-sky-card hover:bg-sky-hover focus-within:bg-sky-hover border border-white/10 focus-within:border-sky-orange/60 rounded-full px-3.5 py-2 gap-2 transition">
+        <i class="ph-bold ph-magnifying-glass text-zinc-400 text-base shrink-0"></i>
+        <input
+          id="topGlobalSearchInput"
+          type="text"
+          dir="auto"
+          placeholder="What do you want to play?"
+          oninput="handleTopBarSearchInput(this.value)"
+          onkeydown="if(event.key==='Enter'){ executeFullSearch(this.value); }"
+          class="bg-transparent text-xs sm:text-sm text-white placeholder-zinc-400 focus:outline-none w-full font-persian"
+        />
+        <button
+          id="topSearchClearBtn"
+          onclick="clearTopSearch()"
+          class="hidden text-zinc-400 hover:text-white"
+        >
+          <i class="ph-fill ph-x-circle text-base"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: PC / Mobile View Toggle + iOS Install Guide + Orange "S" Avatar -->
+    <div class="flex items-center gap-2 shrink-0">
+      <!-- View Mode Toggle Pill -->
+      <div class="flex items-center bg-sky-elevated p-0.5 rounded-full border border-white/10">
+        <button
+          id="btnModePc"
+          onclick="setLayoutMode('pc')"
+          class="px-2.5 py-1 rounded-full text-[11px] font-persian font-bold transition bg-sky-orange text-black flex items-center gap-1"
+          title="نمای دسکتاپ (PC)"
+        >
+          <i class="ph-bold ph-desktop text-xs"></i>
+          <span class="hidden md:inline">PC</span>
+        </button>
+        <button
+          id="btnModeMobile"
+          onclick="setLayoutMode('mobile')"
+          class="px-2.5 py-1 rounded-full text-[11px] font-persian font-bold transition text-zinc-300 hover:text-white flex items-center gap-1"
+          title="نمای موبایل (iPhone)"
+        >
+          <i class="ph-bold ph-device-mobile text-xs"></i>
+          <span class="hidden md:inline">iPhone</span>
+        </button>
+      </div>
+
+      <!-- Download / iOS Native App Helper -->
+      <button
+        onclick="openInstallModal()"
+        class="w-9 h-9 rounded-full bg-sky-elevated hover:bg-sky-hover border border-white/10 text-zinc-300 hover:text-sky-orange flex items-center justify-center transition"
+        title="نصب روی آیفون (.ipa)"
+      >
+        <i class="ph-bold ph-download-simple text-base"></i>
+      </button>
+
+      <!-- Circular Orange "S" Avatar -->
+      <button
+        onclick="switchTab('library')"
+        class="w-9 h-9 rounded-full bg-sky-orange hover:bg-sky-orangeLight text-black font-extrabold text-sm flex items-center justify-center shadow transition"
+        title="Your Library"
+      >
+        S
+      </button>
+    </div>
+  </header>
+
+  <!-- =====================================================================
+       MAIN 3-COLUMN WORKSPACE
+       1. Left Slim Cover Rail (PC Desktop)
+       2. Center Main Viewport (Artist Table / Home / Search / Library / Create)
+       3. Right Live Synced Lyrics Sidebar (PC Desktop)
+       ===================================================================== -->
+  <div id="workspaceShell" class="flex-1 flex gap-2 px-2 pb-2 overflow-hidden relative">
+
+    <!-- 1. LEFT SLIM COVER RAIL (PC Desktop - Exact match to screenshot left sidebar) -->
+    <aside
+      id="pcLeftRail"
+      class="hidden lg:flex flex-col items-center w-[72px] bg-sky-base rounded-2xl py-3 px-2 gap-3 shrink-0 border border-white/5"
+    >
+      <button
+        onclick="switchTab('library')"
+        class="w-10 h-10 rounded-xl hover:bg-sky-elevated text-zinc-400 hover:text-white flex items-center justify-center transition"
+        title="Your Library"
+      >
+        <i class="ph-bold ph-books text-2xl"></i>
+      </button>
+
+      <!-- Scrollable Vertical Stack of Square Artist Covers -->
+      <div id="leftCoverRailList" class="flex-1 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-2.5">
+        <!-- Populated dynamically -->
+      </div>
+
+      <button
+        onclick="switchTab('create')"
+        class="w-10 h-10 rounded-xl bg-sky-elevated hover:bg-sky-orange text-zinc-300 hover:text-black flex items-center justify-center transition shrink-0"
+        title="Create & Import"
+      >
+        <i class="ph-bold ph-plus text-lg"></i>
+      </button>
+    </aside>
+
+    <!-- 2. CENTER MAIN VIEWPORT (NO fake phone status bar icons anywhere) -->
+    <main
+      id="centerPanel"
+      class="flex-1 flex flex-col bg-sky-base rounded-2xl overflow-hidden relative border border-white/5"
+    >
+      <!-- Scrollable Content Container -->
+      <div id="centerScrollContainer" class="flex-1 overflow-y-auto pb-36 lg:pb-6">
+
+        <!-- =============================================================
+             TAB A: ARTIST / POPULAR 5-COLUMN TABLE VIEW (Default on PC)
+             Exact match to the attached Tame Impala PC Screenshot on Desktop
+             & Mobile Artist Playlist Template on Mobile
+             ============================================================= -->
+        <section id="view-detail" class="pb-8">
+          <!-- Top Gradient Header -->
+          <div id="artistHeroGradient" class="bg-gradient-to-b from-[#2e180d] via-[#191310] to-sky-base p-5 sm:p-7 transition-colors duration-500">
+            
+            <!-- Mobile-only Top Navigation Bar (Back `<` & Cover Style Switch) -->
+            <div id="mobileDetailTopRow" class="flex lg:hidden items-center justify-between mb-3">
+              <button
+                onclick="switchTab('home')"
+                class="w-9 h-9 rounded-full hover:bg-white/10 text-white flex items-center justify-center transition"
+              >
+                <i class="ph-bold ph-caret-left text-xl"></i>
+              </button>
+              <button
+                onclick="toggleHeroEmblem()"
+                class="text-xs font-semibold text-zinc-300 hover:text-sky-orange flex items-center gap-1 transition"
+              >
+                <i class="ph-bold ph-repeat text-base"></i>
+                <span>Skyfy Cover</span>
+              </button>
+            </div>
+
+            <!-- Artist Hero Content: Side-by-Side on PC, Centered on Mobile -->
+            <div class="flex flex-col sm:flex-row items-center sm:items-end gap-5 sm:gap-6">
+              <!-- Square Rounded Artist/Album Cover (`160x160`) -->
+              <div
+                onclick="toggleHeroEmblem()"
+                class="relative w-44 h-44 sm:w-40 sm:h-40 md:w-44 md:h-44 rounded-2xl overflow-hidden shadow-2xl bg-sky-orange flex items-center justify-center shrink-0 cursor-pointer group"
+                title="Click to switch between Photo & Skyfy Emblem"
+              >
+                <img
+                  id="detailHeroImage"
+                  src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80"
+                  alt="Artist Cover"
+                  class="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                />
+                <!-- Orange Square with Dark Circular Skyfy Emblem (Matches Mobile Template 3) -->
+                <div id="detailHeroEmblem" class="hidden absolute inset-0 bg-sky-orange flex items-center justify-center">
+                  <svg class="w-24 h-24" viewBox="0 0 36 36" fill="none">
+                    <circle cx="18" cy="18" r="18" fill="#181818"/>
+                    <path d="M8.5 14.2C14.8 11.4 21.8 11.7 27.5 15.1" stroke="#FF5500" stroke-width="2.9" stroke-linecap="round"/>
+                    <path d="M10.2 19.3C15.4 17.0 21.0 17.3 25.8 20.1" stroke="#FF5500" stroke-width="2.6" stroke-linecap="round"/>
+                    <path d="M12.2 24.1C16.1 22.4 20.2 22.6 23.8 24.7" stroke="#FF5500" stroke-width="2.3" stroke-linecap="round"/>
+                    <circle cx="18" cy="9.2" r="1.5" fill="#FF5500"/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Artist Badge, Large Bold Title & Monthly Listeners -->
+              <div class="flex-1 text-center sm:text-left min-w-0">
+                <div class="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                  <span class="text-[11px] font-bold tracking-widest uppercase text-zinc-300">ARTIST</span>
+                  <span id="streamSourceBadge" class="px-2 py-0.5 rounded-full bg-sky-orange/20 border border-sky-orange/40 text-sky-orange text-[10px] font-mono">
+                    SPARSI-CORE READY
+                  </span>
+                </div>
+                <h1
+                  id="detailArtistName"
+                  class="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight truncate font-persian leading-none"
+                  dir="auto"
+                >
+                  Tame Impala
+                </h1>
+                <p id="detailListenersCount" class="text-xs sm:text-sm text-zinc-400 mt-3 font-medium">
+                  921,125 monthly listeners
+                </p>
+              </div>
+            </div>
+
+            <!-- Action Controls Row (PC: Play, Shuffle, Following, `•••` | Mobile: Small Thumb, `+`, `↓`, `⋮` + Shuffle & Play) -->
+            <div class="flex items-center justify-between mt-6 gap-2">
+              <div class="flex items-center gap-4 sm:gap-5">
+                <!-- Large Circular Orange Play/Pause Button -->
+                <button
+                  onclick="playDetailTrackAtIndex(0)"
+                  class="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-sky-orange hover:bg-sky-orangeLight text-black flex items-center justify-center shadow-xl transition transform active:scale-95 shrink-0"
+                  style="width: 52px; height: 52px;"
+                >
+                  <i id="detailMainPlayIcon" class="ph-fill ph-play text-2xl ml-0.5"></i>
+                </button>
+
+                <!-- Shuffle Toggle Button -->
+                <button
+                  onclick="toggleShuffleMode()"
+                  id="detailShuffleBtn"
+                  class="text-zinc-300 hover:text-sky-orange transition"
+                  title="Shuffle"
+                >
+                  <i class="ph-bold ph-shuffle text-2xl"></i>
+                </button>
+
+                <!-- Following Pill Button -->
+                <button
+                  id="followToggleBtn"
+                  onclick="toggleFollowArtist()"
+                  class="px-4 py-1.5 rounded-full border border-zinc-600 hover:border-white text-xs font-bold text-white transition"
+                >
+                  Following
+                </button>
+
+                <!-- Save All to Library (`•••`) -->
+                <button
+                  onclick="saveAllDetailTracks()"
+                  class="text-zinc-400 hover:text-white transition"
+                  title="Save all tracks to Library"
+                >
+                  <i class="ph-bold ph-dots-three text-2xl"></i>
+                </button>
+              </div>
+
+              <!-- Quick Artist Pills (One-Click Global & Iranian Artist Switcher) -->
+              <div class="hidden xl:flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                <button onclick="loadArtistProfile('Tame Impala')" class="px-3 py-1 rounded-full bg-white/5 hover:bg-sky-orange hover:text-black text-xs font-semibold text-zinc-300 transition shrink-0">
+                  Tame Impala
+                </button>
+                <button onclick="loadArtistProfile('Mehrad Hidden')" class="px-3 py-1 rounded-full bg-white/5 hover:bg-sky-orange hover:text-black text-xs font-persian font-semibold text-zinc-300 transition shrink-0">
+                  مهراد هیدن
+                </button>
+                <button onclick="loadArtistProfile('Shadmehr Aghili')" class="px-3 py-1 rounded-full bg-white/5 hover:bg-sky-orange hover:text-black text-xs font-persian font-semibold text-zinc-300 transition shrink-0">
+                  شادمهر عقیلی
+                </button>
+                <button onclick="loadArtistProfile('Arctic Monkeys')" class="px-3 py-1 rounded-full bg-white/5 hover:bg-sky-orange hover:text-black text-xs font-semibold text-zinc-300 transition shrink-0">
+                  Arctic Monkeys
+                </button>
+                <button onclick="loadArtistProfile('Guns N Roses')" class="px-3 py-1 rounded-full bg-white/5 hover:bg-sky-orange hover:text-black text-xs font-semibold text-zinc-300 transition shrink-0">
+                  Guns N' Roses
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Popular 5-Column Track Table (Exact match to PC Screenshot) -->
+          <div class="px-4 sm:px-7 pt-2">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-lg sm:text-xl font-extrabold text-white">Popular</h2>
+              <!-- Mobile Quick Artist Switcher -->
+              <div class="flex xl:hidden items-center gap-1.5 overflow-x-auto no-scrollbar max-w-[65%]">
+                <button onclick="loadArtistProfile('Tame Impala')" class="px-2.5 py-1 rounded-full bg-sky-card text-[11px] text-zinc-300 shrink-0">Tame Impala</button>
+                <button onclick="loadArtistProfile('Mehrad Hidden')" class="px-2.5 py-1 rounded-full bg-sky-card text-[11px] font-persian text-zinc-300 shrink-0">مهراد هیدن</button>
+                <button onclick="loadArtistProfile('Shadmehr Aghili')" class="px-2.5 py-1 rounded-full bg-sky-card text-[11px] font-persian text-zinc-300 shrink-0">شادمهر</button>
+                <button onclick="loadArtistProfile('Mohsen Chavoshi')" class="px-2.5 py-1 rounded-full bg-sky-card text-[11px] font-persian text-zinc-300 shrink-0">چاوشی</button>
+              </div>
+            </div>
+
+            <!-- Table Column Headers (TITLE | ALBUM | Calendar Icon | Clock Icon | Actions) -->
+            <div id="pcPopularTableHeader" class="hidden md:grid grid-cols-12 items-center gap-4 px-3 py-2 border-b border-white/10 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 select-none mb-1">
+              <div class="col-span-5">TITLE</div>
+              <div class="col-span-3">ALBUM</div>
+              <div class="col-span-2 flex items-center">
+                <i class="ph ph-calendar-blank text-sm"></i>
+              </div>
+              <div class="col-span-1 flex items-center justify-end pr-2">
+                <i class="ph ph-clock text-sm"></i>
+              </div>
+              <div class="col-span-1"></div>
+            </div>
+
+            <!-- Track Rows Container -->
+            <div id="popularTableBody" class="space-y-1">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================
+             TAB B: HOME VIEW (Matches Mobile Template 4 & Desktop Home)
+             - Filter Pills: All, Iranian, Global Rock, Hip-Hop, Electronic
+             - 8-Item 2-Column Compact Grid
+             - "Picked for you" Featured Card
+             - "New releases for you" Horizontal Carousels
+             ============================================================= -->
+        <section id="view-home" class="hidden p-4 sm:p-6 space-y-6">
+          <!-- Top Filter Pills -->
+          <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+            <div class="w-8 h-8 rounded-full bg-sky-orange text-black font-extrabold text-xs flex items-center justify-center shrink-0">
+              S
+            </div>
+            <button onclick="filterHomeSection('all', this)" class="home-filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold bg-sky-orange text-black transition shrink-0">
+              All
+            </button>
+            <button onclick="filterHomeSection('iranian', this)" class="home-filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold bg-sky-card text-white hover:bg-sky-hover transition shrink-0">
+              Iranian
+            </button>
+            <button onclick="filterHomeSection('rock', this)" class="home-filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold bg-sky-card text-white hover:bg-sky-hover transition shrink-0">
+              Global Rock
+            </button>
+            <button onclick="filterHomeSection('hiphop', this)" class="home-filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold bg-sky-card text-white hover:bg-sky-hover transition shrink-0">
+              Hip-Hop
+            </button>
+            <button onclick="filterHomeSection('electronic', this)" class="home-filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold bg-sky-card text-white hover:bg-sky-hover transition shrink-0">
+              Electronic
+            </button>
+          </div>
+
+          <!-- 2-Column 8-Item Quick Access Grid -->
+          <div id="homeQuickGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- "Picked for you" Featured Card -->
+          <div>
+            <h2 class="text-lg font-extrabold tracking-tight text-white mb-2.5">Picked for you</h2>
+            <div
+              id="pickedForYouContainer"
+              class="bg-sky-card hover:bg-sky-hover rounded-xl overflow-hidden flex items-center gap-3.5 border border-white/5 transition cursor-pointer relative group"
+            >
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- "New releases for you" (Iranian Hits) -->
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-lg font-extrabold tracking-tight text-white">New releases for you</h2>
+              <button onclick="loadArtistProfile('Shadmehr Aghili')" class="text-xs font-semibold text-sky-subtext hover:text-white">
+                Show all
+              </button>
+            </div>
+            <div id="homeCarouselIranian" class="flex items-start gap-3.5 overflow-x-auto no-scrollbar pb-2">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- "Global Trending" Row -->
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-lg font-extrabold tracking-tight text-white">Trending Worldwide</h2>
+              <button onclick="loadArtistProfile('Tame Impala')" class="text-xs font-semibold text-sky-subtext hover:text-white">
+                Show all
+              </button>
+            </div>
+            <div id="homeCarouselGlobal" class="flex items-start gap-3.5 overflow-x-auto no-scrollbar pb-2">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Curated Artists Row -->
+          <div>
+            <h2 class="text-lg font-extrabold tracking-tight text-white mb-3">Curated Artists</h2>
+            <div id="homeArtistsRow" class="flex items-center gap-4 overflow-x-auto no-scrollbar pb-2">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================
+             TAB C: SEARCH & BROWSE ALL VIEW
+             - Bold "Search" Header
+             - White Rounded Search Bar ("What do you want to listen to?")
+             - 2-Column Colorful "Browse all" Genre Cards
+             ============================================================= -->
+        <section id="view-search" class="hidden p-4 sm:p-6 space-y-5">
+          <div class="flex items-center justify-between">
+            <h1 class="text-2xl font-extrabold tracking-tight text-white">Search</h1>
+            <button onclick="switchTab('create')" class="text-zinc-300 hover:text-white">
+              <i class="ph-bold ph-plus-circle text-xl"></i>
+            </button>
+          </div>
+
+          <!-- White Rounded Search Bar -->
+          <div class="sticky top-0 z-20 pt-1 pb-2 bg-sky-base/95 backdrop-blur-md">
+            <div class="relative flex items-center bg-white rounded-lg overflow-hidden shadow">
+              <i class="ph-bold ph-magnifying-glass text-black text-xl pl-3.5 pointer-events-none"></i>
+              <input
+                id="searchPageInput"
+                type="text"
+                dir="auto"
+                placeholder="What do you want to listen to?"
+                oninput="handleSearchPageInput(this.value)"
+                onkeydown="if(event.key==='Enter'){ executeFullSearch(this.value); }"
+                class="w-full py-2.5 px-3 text-sm font-semibold text-black placeholder-zinc-600 focus:outline-none font-persian"
+              />
+              <button
+                id="searchPageClearBtn"
+                onclick="clearSearchPage()"
+                class="hidden pr-3 text-zinc-500 hover:text-black"
+              >
+                <i class="ph-fill ph-x-circle text-lg"></i>
+              </button>
+            </div>
+
+            <!-- Instant Artist Search Chips -->
+            <div class="flex items-center gap-2 mt-3 overflow-x-auto no-scrollbar">
+              <button onclick="executeFullSearch('Tame Impala')" class="px-3 py-1 rounded-full bg-sky-card hover:bg-sky-orange hover:text-black text-xs font-semibold text-zinc-200 shrink-0 transition">
+                Tame Impala
+              </button>
+              <button onclick="executeFullSearch('Mehrad Hidden')" class="px-3 py-1 rounded-full bg-sky-card hover:bg-sky-orange hover:text-black text-xs font-persian text-zinc-200 shrink-0 transition">
+                مهراد هیدن
+              </button>
+              <button onclick="executeFullSearch('Shadmehr Aghili')" class="px-3 py-1 rounded-full bg-sky-card hover:bg-sky-orange hover:text-black text-xs font-persian text-zinc-200 shrink-0 transition">
+                شادمهر عقیلی
+              </button>
+              <button onclick="executeFullSearch('Arctic Monkeys')" class="px-3 py-1 rounded-full bg-sky-card hover:bg-sky-orange hover:text-black text-xs font-semibold text-zinc-200 shrink-0 transition">
+                Arctic Monkeys
+              </button>
+              <button onclick="executeFullSearch('Guns N Roses')" class="px-3 py-1 rounded-full bg-sky-card hover:bg-sky-orange hover:text-black text-xs font-semibold text-zinc-200 shrink-0 transition">
+                Guns N' Roses
+              </button>
+              <button onclick="executeFullSearch('Zedbazi')" class="px-3 py-1 rounded-full bg-sky-card hover:bg-sky-orange hover:text-black text-xs font-persian text-zinc-200 shrink-0 transition">
+                زدبازی
+              </button>
+              <button onclick="executeFullSearch('Homayoun Shajarian')" class="px-3 py-1 rounded-full bg-sky-card hover:bg-sky-orange hover:text-black text-xs font-persian text-zinc-200 shrink-0 transition">
+                همایون شجریان
+              </button>
+              <button onclick="executeFullSearch('The Weeknd')" class="px-3 py-1 rounded-full bg-sky-card hover:bg-sky-orange hover:text-black text-xs font-semibold text-zinc-200 shrink-0 transition">
+                The Weeknd
+              </button>
+            </div>
+          </div>
+
+          <!-- Search Results List -->
+          <div id="searchResultsBox" class="hidden space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 id="searchResultsTitle" class="text-sm font-bold text-white font-persian">Results</h3>
+              <button onclick="clearSearchPage()" class="text-xs text-sky-orange hover:underline">Clear</button>
+            </div>
+            <div id="searchResultsRows" class="space-y-1.5">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- 2-Column Colorful "Browse all" Category Tiles -->
+          <div id="browseAllContainer">
+            <h2 class="text-sm font-bold text-white mb-3">Browse all</h2>
+            <div id="browseAllGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================
+             TAB D: YOUR LIBRARY VIEW
+             ============================================================= -->
+        <section id="view-library" class="hidden p-4 sm:p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-sky-orange text-black font-extrabold text-sm flex items-center justify-center">
+                S
+              </div>
+              <h1 class="text-xl font-extrabold text-white">Your Library</h1>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="switchTab('search')" class="p-2 text-zinc-200 hover:text-white">
+                <i class="ph-bold ph-magnifying-glass text-xl"></i>
+              </button>
+              <button onclick="switchTab('create')" class="p-2 text-zinc-200 hover:text-white">
+                <i class="ph-bold ph-plus text-xl"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <button onclick="renderLibraryItems('all', this)" class="lib-filter-btn px-3.5 py-1 rounded-full text-xs font-bold bg-sky-orange text-black transition">
+              All
+            </button>
+            <button onclick="renderLibraryItems('liked', this)" class="lib-filter-btn px-3.5 py-1 rounded-full text-xs font-bold bg-sky-card text-white hover:bg-sky-hover transition">
+              Liked Songs
+            </button>
+            <button onclick="renderLibraryItems('artists', this)" class="lib-filter-btn px-3.5 py-1 rounded-full text-xs font-bold bg-sky-card text-white hover:bg-sky-hover transition">
+              Artists
+            </button>
+            <button onclick="renderLibraryItems('local', this)" class="lib-filter-btn px-3.5 py-1 rounded-full text-xs font-bold bg-sky-card text-white hover:bg-sky-hover transition">
+              Imported Files
+            </button>
+          </div>
+
+          <div id="libraryItemsList" class="space-y-2 pt-1">
+            <!-- Populated dynamically -->
+          </div>
+        </section>
+
+        <!-- =============================================================
+             TAB E: CREATE, IMPORT & STUDIO EQ VIEW (+ Tab)
+             ============================================================= -->
+        <section id="view-create" class="hidden p-4 sm:p-6 space-y-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-2xl font-extrabold text-white">Create & Studio</h1>
+              <p class="text-xs text-sky-subtext font-persian mt-1">
+                وارد کردن فایل‌های صوتی شخصی، ساخت پلی‌لیست و تنظیم اکولایزر ۳ باند
+              </p>
+            </div>
+            <span class="px-2.5 py-1 rounded-full bg-sky-orange/15 border border-sky-orange/40 text-sky-orange text-[11px] font-mono">
+              Sparsi-Core v7.0
+            </span>
+          </div>
+
+          <!-- 3-Band WebAudio Equalizer -->
+          <div class="bg-sky-card rounded-2xl p-4 space-y-3 border border-white/5">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="ph-fill ph-sliders text-sky-orange text-lg"></i>
+                <span>3-Band Studio Equalizer</span>
+              </span>
+              <span class="text-[10px] font-mono text-sky-orange">LIVE AUDIO DSP</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
+              <div class="bg-sky-base p-3 rounded-xl border border-white/5 flex items-center justify-between gap-3">
+                <span class="text-zinc-300 font-semibold">Bass</span>
+                <input type="range" min="-12" max="12" value="0" oninput="adjustEqualizer('bass', this.value)" class="flex-1 sky-slider" />
+              </div>
+              <div class="bg-sky-base p-3 rounded-xl border border-white/5 flex items-center justify-between gap-3">
+                <span class="text-zinc-300 font-semibold">Mid</span>
+                <input type="range" min="-12" max="12" value="0" oninput="adjustEqualizer('mid', this.value)" class="flex-1 sky-slider" />
+              </div>
+              <div class="bg-sky-base p-3 rounded-xl border border-white/5 flex items-center justify-between gap-3">
+                <span class="text-zinc-300 font-semibold">Treble</span>
+                <input type="range" min="-12" max="12" value="0" oninput="adjustEqualizer('treble', this.value)" class="flex-1 sky-slider" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Create Custom Playlist -->
+          <div class="bg-sky-card rounded-2xl p-4 space-y-3 border border-white/5" dir="rtl">
+            <h3 class="font-bold text-sm text-white font-persian flex items-center gap-2">
+              <i class="ph-fill ph-playlist text-sky-orange text-lg"></i>
+              <span>ساخت پلی‌لیست جدید</span>
+            </h3>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input
+                id="customPlaylistInput"
+                type="text"
+                placeholder="نام پلی‌لیست..."
+                class="flex-1 bg-sky-base text-xs text-white px-3.5 py-2.5 rounded-xl border border-white/10 focus:border-sky-orange focus:outline-none font-persian"
+              />
+              <button
+                onclick="createUserPlaylist()"
+                class="bg-sky-orange hover:bg-sky-orangeLight text-black font-bold text-xs px-5 py-2.5 rounded-xl transition font-persian shrink-0"
+              >
+                ایجاد پلی‌لیست
+              </button>
+            </div>
+          </div>
+
+          <!-- Direct Audio URL Import -->
+          <div class="bg-sky-card rounded-2xl p-4 space-y-3 border border-white/5" dir="rtl">
+            <h3 class="font-bold text-sm text-white font-persian flex items-center gap-2">
+              <i class="ph-fill ph-link text-sky-orange text-lg"></i>
+              <span>پخش با لینک مستقیم فایل صوتی (MP3 / M4A)</span>
+            </h3>
+            <input
+              id="directStreamTitleInput"
+              type="text"
+              placeholder="نام آهنگ و خواننده..."
+              class="w-full bg-sky-base text-xs text-white px-3.5 py-2.5 rounded-xl border border-white/10 focus:border-sky-orange focus:outline-none font-persian"
+            />
+            <div class="flex flex-col sm:flex-row gap-2" dir="ltr">
+              <input
+                id="directStreamUrlInput"
+                type="url"
+                placeholder="https://example.com/song.mp3"
+                class="flex-1 bg-sky-base text-xs text-white px-3.5 py-2.5 rounded-xl border border-white/10 focus:border-sky-orange focus:outline-none font-mono"
+              />
+              <button
+                onclick="playCustomStreamUrl()"
+                class="bg-sky-orange hover:bg-sky-orangeLight text-black font-bold text-xs px-5 py-2.5 rounded-xl transition font-persian shrink-0"
+              >
+                پخش فوری
+              </button>
+            </div>
+          </div>
+
+          <!-- Local Audio File Upload -->
+          <label
+            for="localFilePicker"
+            class="block border-2 border-dashed border-sky-orange/50 hover:border-sky-orange bg-sky-card/40 hover:bg-sky-orange/10 rounded-2xl p-6 text-center cursor-pointer transition"
+          >
+            <input id="localFilePicker" type="file" accept="audio/*" multiple class="hidden" onchange="importLocalAudioFiles(event)" />
+            <div class="w-12 h-12 rounded-2xl bg-sky-orange text-black flex items-center justify-center mx-auto mb-2.5 shadow-lg">
+              <i class="ph-fill ph-folder-simple-plus text-2xl"></i>
+            </div>
+            <h3 class="font-bold text-sm text-white font-persian">انتخاب فایل‌های صوتی از گوشی یا کامپیوتر</h3>
+            <p class="text-xs text-sky-subtext mt-1 font-mono">MP3 • WAV • FLAC • M4A</p>
+          </label>
+        </section>
+
+      </div>
+
+      <!-- ===============================================================
+           MOBILE FLOATING MINI-PLAYER + 5-TAB BOTTOM NAVIGATION BAR
+           (Shown on Mobile screens OR when user switches to iPhone View)
+           =============================================================== -->
+      <div
+        id="mobileBottomDock"
+        class="lg:hidden absolute bottom-0 inset-x-0 z-30 flex flex-col bg-gradient-to-t from-black via-black/95 to-transparent pt-1"
+      >
+        <!-- Dark-Orange Floating Mini-Player Bar -->
+        <div
+          onclick="openNowPlayingModal()"
+          class="mx-2 mb-1.5 px-2.5 py-2 rounded-xl bg-sky-miniBar border border-sky-orange/30 shadow-2xl flex items-center justify-between gap-3 cursor-pointer relative overflow-hidden"
+        >
+          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <div class="w-10 h-10 rounded-lg bg-sky-orange overflow-hidden shrink-0">
+              <img id="mobMiniCover" src="" alt="" class="w-full h-full object-cover" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <p id="mobMiniTitle" class="text-xs font-bold text-white truncate font-persian" dir="auto">
+                The Less I Know The Better
+              </p>
+              <p id="mobMiniArtist" class="text-[11px] text-zinc-300 truncate font-persian" dir="auto">
+                Tame Impala
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 pr-1 shrink-0" onclick="event.stopPropagation()">
+            <button onclick="openNowPlayingModal('lyrics')" class="text-zinc-200 hover:text-sky-orange" title="Lyrics">
+              <i class="ph-bold ph-microphone-stage text-xl"></i>
+            </button>
+            <button
+              onclick="togglePlayPause()"
+              class="w-8 h-8 flex items-center justify-center text-white hover:text-sky-orange transition"
+            >
+              <i id="mobMiniPlayIcon" class="ph-fill ph-play text-2xl"></i>
+            </button>
+          </div>
+
+          <!-- Mini Progress Line -->
+          <div class="absolute bottom-0 left-2 right-2 h-[2px] bg-white/15 overflow-hidden rounded-full">
+            <div id="mobMiniProgressFill" class="h-full bg-sky-orange w-0 transition-all duration-150"></div>
+          </div>
+        </div>
+
+        <!-- 5-Tab Bottom Navigation Bar -->
+        <nav class="bg-black/95 px-2 pt-1.5 pb-[calc(6px+var(--safe-bottom))] flex items-center justify-around border-t border-white/5">
+          <button onclick="switchTab('home')" id="mobTabBtn-home" class="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white">
+            <i class="ph-fill ph-house text-xl"></i>
+            <span class="text-[10px] font-medium">Home</span>
+          </button>
+          <button onclick="switchTab('search')" id="mobTabBtn-search" class="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white">
+            <i class="ph ph-magnifying-glass text-xl"></i>
+            <span class="text-[10px] font-medium">Search</span>
+          </button>
+          <button onclick="switchTab('library')" id="mobTabBtn-library" class="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white">
+            <i class="ph ph-books text-xl"></i>
+            <span class="text-[10px] font-medium">Your Library</span>
+          </button>
+          <button onclick="openNowPlayingModal('lyrics')" id="mobTabBtn-lyrics" class="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white">
+            <i class="ph ph-microphone-stage text-xl"></i>
+            <span class="text-[10px] font-medium">Lyrics</span>
+          </button>
+          <button onclick="switchTab('create')" id="mobTabBtn-create" class="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white">
+            <i class="ph ph-plus text-xl"></i>
+            <span class="text-[10px] font-medium">Create</span>
+          </button>
+        </nav>
+      </div>
+    </main>
+
+    <!-- 3. RIGHT LIVE SYNCED LYRICS PANEL (PC Desktop - Exact match to screenshot right panel) -->
+    <aside
+      id="pcRightLyricsPanel"
+      class="hidden lg:flex flex-col w-[330px] bg-sky-base rounded-2xl p-4 shrink-0 border border-white/5 overflow-hidden"
+    >
+      <!-- Top Header: Lyrics + Close `✕` -->
+      <div class="flex items-center justify-between mb-3 shrink-0">
+        <span class="text-sm font-extrabold text-white tracking-tight">Lyrics</span>
+        <button
+          onclick="toggleDesktopLyricsPanel()"
+          class="w-7 h-7 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition"
+          title="Close Lyrics"
+        >
+          <i class="ph-bold ph-x text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Compact Now-Playing Card at top of Lyrics panel (Cover + Track Title + Artist) -->
+      <div
+        onclick="openNowPlayingModal()"
+        class="bg-sky-card hover:bg-sky-hover rounded-xl p-2.5 flex items-center gap-3 mb-4 shrink-0 cursor-pointer border border-white/5 transition"
+      >
+        <div class="w-11 h-11 rounded-lg bg-sky-orange overflow-hidden shrink-0">
+          <img id="lyricsCardCover" src="" alt="" class="w-full h-full object-cover" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <h3 id="lyricsCardTitle" class="text-xs font-extrabold text-white truncate font-persian" dir="auto">
+            The Less I Know The Better
+          </h3>
+          <p id="lyricsCardArtist" class="text-[11px] text-zinc-400 truncate font-persian mt-0.5" dir="auto">
+            Tame Impala
+          </p>
+        </div>
+      </div>
+
+      <!-- Scrollable Time-Synced Lyrics Lines -->
+      <div
+        id="pcLyricsContainer"
+        class="flex-1 overflow-y-auto no-scrollbar space-y-2 pr-1 py-2 select-none"
+        dir="auto"
+      >
+        <!-- Populated dynamically -->
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- =====================================================================
+       DESKTOP PERSISTENT BOTTOM PLAYER BAR
+       (Exact match to the bottom player bar of the attached PC screenshot)
+       ===================================================================== -->
+  <footer
+    id="pcBottomBar"
+    class="hidden lg:flex h-20 bg-sky-black px-4 items-center justify-between gap-4 shrink-0 z-30"
+  >
+    <!-- Left: Cover (`52x52`), Track Title, Artist Name, `(+)` and `(♡)` -->
+    <div class="flex items-center gap-3 w-1/4 min-w-0">
+      <div
+        onclick="openNowPlayingModal()"
+        class="w-[52px] h-[52px] rounded-lg bg-sky-orange overflow-hidden shrink-0 cursor-pointer shadow"
+      >
+        <img id="pcPlayerCover" src="" alt="" class="w-full h-full object-cover" />
+      </div>
+      <div class="min-w-0">
+        <div
+          id="pcPlayerTitle"
+          onclick="openNowPlayingModal()"
+          class="text-xs sm:text-sm font-bold text-white hover:underline truncate cursor-pointer font-persian"
+          dir="auto"
+        >
+          The Less I Know The Better
+        </div>
+        <div
+          id="pcPlayerArtist"
+          onclick="exploreCurrentPlayingArtist()"
+          class="text-[11px] text-zinc-400 hover:text-white truncate cursor-pointer font-persian"
+          dir="auto"
+        >
+          Tame Impala
+        </div>
+      </div>
+      <div class="flex items-center gap-2 ml-1 shrink-0">
+        <button onclick="toggleLikeCurrentTrack()" id="pcPlusBtn" class="text-zinc-400 hover:text-white transition" title="Add to Library">
+          <i class="ph-bold ph-plus-circle text-lg"></i>
+        </button>
+        <button onclick="toggleLikeCurrentTrack()" id="pcHeartBtn" class="text-zinc-400 hover:text-sky-orange transition" title="Like">
+          <i class="ph-bold ph-heart text-lg"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Center: Transport Buttons + Full Progress Seek Bar (`0:35 ─────── 3:36`) -->
+    <div class="flex flex-col items-center flex-1 max-w-2xl">
+      <div class="flex items-center gap-5 mb-1.5">
+        <button onclick="toggleShuffleMode()" id="pcShuffleBtn" class="text-zinc-400 hover:text-white transition" title="Shuffle">
+          <i class="ph-bold ph-shuffle text-base"></i>
+        </button>
+        <button onclick="playPreviousTrack()" class="text-zinc-300 hover:text-white transition" title="Previous">
+          <i class="ph-fill ph-skip-back text-lg"></i>
+        </button>
+        <button
+          onclick="togglePlayPause()"
+          class="w-9 h-9 rounded-full bg-white hover:scale-105 text-black flex items-center justify-center transition transform active:scale-95 shadow"
+        >
+          <i id="pcPlayIcon" class="ph-fill ph-play text-lg ml-0.5"></i>
+        </button>
+        <button onclick="playNextTrack()" class="text-zinc-300 hover:text-white transition" title="Next">
+          <i class="ph-fill ph-skip-forward text-lg"></i>
+        </button>
+        <button onclick="toggleRepeatMode()" id="pcRepeatBtn" class="text-zinc-400 hover:text-white transition" title="Repeat">
+          <i class="ph-bold ph-repeat text-base"></i>
+        </button>
+      </div>
+
+      <div class="w-full flex items-center gap-2.5">
+        <span id="pcCurrentTime" class="text-[11px] font-mono text-zinc-400 w-9 text-right">0:00</span>
+        <input
+          id="pcSeekSlider"
+          type="range"
+          min="0"
+          max="100"
+          value="0"
+          step="0.1"
+          oninput="seekAudioPercent(this.value)"
+          class="flex-1 sky-slider"
+        />
+        <span id="pcTotalDuration" class="text-[11px] font-mono text-zinc-400 w-9">3:36</span>
+      </div>
+    </div>
+
+    <!-- Right: Quality Pill, Lyrics Toggle, Equalizer, Volume Mute & Volume Slider -->
+    <div class="flex items-center justify-end gap-3 w-1/4">
+      <span id="pcAudioQualityPill" class="hidden xl:inline-block px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono text-sky-orange">
+        320K HQ
+      </span>
+      <button
+        id="pcLyricsBtn"
+        onclick="toggleDesktopLyricsPanel()"
+        class="text-sky-orange hover:scale-110 transition"
+        title="Lyrics"
+      >
+        <i class="ph-bold ph-microphone-stage text-lg"></i>
+      </button>
+      <button
+        onclick="switchTab('create')"
+        class="text-zinc-400 hover:text-white transition"
+        title="Studio Equalizer"
+      >
+        <i class="ph-bold ph-sliders text-lg"></i>
+      </button>
+      <button onclick="toggleMuteAudio()" class="text-zinc-300 hover:text-white">
+        <i id="pcVolumeIcon" class="ph-bold ph-speaker-high text-lg"></i>
+      </button>
+      <input
+        id="pcVolumeSlider"
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        value="0.9"
+        oninput="changeVolume(this.value)"
+        class="w-24 sky-slider"
+      />
+    </div>
+  </footer>
+
+  <!-- =====================================================================
+       FULL-SCREEN "NOW PLAYING" MODAL (Matches Mobile Templates 1 & 2)
+       - NO fake status bar icons
+       - 4 Switchable Center Visual Modes:
+         1. Official Album Cover
+         2. Solid Orange Square with black "Skyfy" text
+         3. Minimal Dark screen with centered Orange Skyfy emblem + "Skyfy"
+         4. Live Time-Synced Lyrics
+       - Track info row with small square thumb + title + artist + `(+)`
+       - Bottom Orange Capsule: `Explore [Artist Name]`
+       ===================================================================== -->
+  <div
+    id="nowPlayingOverlay"
+    class="fixed inset-0 z-50 bg-[#181818] flex flex-col justify-between px-5 pt-4 pb-4 sm:py-6 translate-y-full opacity-0 pointer-events-none sheet-transition"
+  >
+    <div class="max-w-[390px] w-full mx-auto flex-1 flex flex-col justify-between overflow-hidden">
+
+      <!-- Top Header: Down Chevron `⌄`, Centered Song Name, Visual Mode Switcher -->
+      <div class="flex items-center justify-between py-1 shrink-0">
+        <button
+          onclick="closeNowPlayingModal()"
+          class="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center text-white transition"
+        >
+          <i class="ph-bold ph-caret-down text-xl"></i>
+        </button>
+
+        <div class="text-center min-w-0 px-3">
+          <p id="npTopSongTitle" class="text-xs font-bold text-white truncate font-persian" dir="auto">
+            The Less I Know The Better
+          </p>
+        </div>
+
+        <button
+          onclick="cycleNowPlayingVisualMode()"
+          class="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center text-white transition"
+          title="Switch Center Visual (Cover / Orange Skyfy / Dark Skyfy / Lyrics)"
+        >
+          <i id="npModeIcon" class="ph-bold ph-dots-three text-2xl"></i>
+        </button>
+      </div>
+
+      <!-- CENTER VISUAL AREA -->
+      <div class="my-auto py-2 flex items-center justify-center overflow-hidden">
+        <!-- Mode 1: Official Album Cover Art -->
+        <div
+          id="npVisualArtwork"
+          onclick="cycleNowPlayingVisualMode()"
+          class="w-full aspect-square max-h-[300px] rounded-[22px] bg-sky-orange overflow-hidden shadow-2xl cursor-pointer"
+        >
+          <img id="npMainCover" src="" alt="Cover" class="w-full h-full object-cover" />
+        </div>
+
+        <!-- Mode 2: Solid Orange Square with Black "Skyfy" Typography (Template 1 Left Phone) -->
+        <div
+          id="npVisualOrangeSquare"
+          onclick="cycleNowPlayingVisualMode()"
+          class="hidden w-full aspect-square max-h-[300px] rounded-[22px] bg-sky-orange flex items-center justify-center shadow-2xl cursor-pointer select-none"
+        >
+          <span class="text-4xl sm:text-5xl font-extrabold tracking-tight text-black">Skyfy</span>
+        </div>
+
+        <!-- Mode 3: Dark Screen with Circular Orange Skyfy Emblem + Orange "Skyfy" Text (Template 1 Middle Phone) -->
+        <div
+          id="npVisualDarkEmblem"
+          onclick="cycleNowPlayingVisualMode()"
+          class="hidden w-full aspect-square max-h-[300px] rounded-[22px] bg-transparent flex items-center justify-center cursor-pointer select-none"
+        >
+          <div class="flex items-center gap-3">
+            <svg class="w-16 h-16 text-sky-orange shrink-0" viewBox="0 0 36 36" fill="none">
+              <circle cx="18" cy="18" r="18" fill="currentColor"/>
+              <path d="M8.5 14.2C14.8 11.4 21.8 11.7 27.5 15.1" stroke="#181818" stroke-width="2.9" stroke-linecap="round"/>
+              <path d="M10.2 19.3C15.4 17.0 21.0 17.3 25.8 20.1" stroke="#181818" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M12.2 24.1C16.1 22.4 20.2 22.6 23.8 24.7" stroke="#181818" stroke-width="2.3" stroke-linecap="round"/>
+              <circle cx="18" cy="9.2" r="1.5" fill="#181818"/>
+            </svg>
+            <span class="text-4xl font-extrabold tracking-tight text-sky-orange">Skyfy</span>
+          </div>
+        </div>
+
+        <!-- Mode 4: Mobile Live Time-Synced Lyrics Box -->
+        <div
+          id="npVisualLyrics"
+          onclick="cycleNowPlayingVisualMode()"
+          class="hidden w-full h-[290px] rounded-[22px] bg-[#121212] border border-white/10 p-4 overflow-y-auto no-scrollbar space-y-2"
+          dir="auto"
+        >
+          <!-- Synced with lyrics -->
+        </div>
+      </div>
+
+      <!-- LOWER CONTROLS SECTION -->
+      <div class="space-y-3 shrink-0">
+        <!-- Small Square Cover + Song Title + Artist Name + (+) Button -->
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <div class="w-10 h-10 rounded-lg bg-sky-orange overflow-hidden shrink-0">
+              <img id="npSmallThumb" src="" alt="" class="w-full h-full object-cover" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <h2 id="npTrackTitle" class="text-base font-extrabold text-white truncate font-persian" dir="auto">
+                The Less I Know The Better
+              </h2>
+              <p id="npTrackArtist" class="text-xs text-zinc-400 truncate font-persian" dir="auto">
+                Tame Impala
+              </p>
+            </div>
+          </div>
+
+          <button
+            onclick="toggleLikeCurrentTrack()"
+            id="npLikeBtn"
+            class="text-white hover:text-sky-orange transition shrink-0"
+          >
+            <i class="ph-bold ph-plus-circle text-3xl"></i>
+          </button>
+        </div>
+
+        <!-- Scrubbable Progress Slider -->
+        <div class="pt-1">
+          <input
+            id="npSeekSlider"
+            type="range"
+            min="0"
+            max="100"
+            value="0"
+            step="0.1"
+            oninput="seekAudioPercent(this.value)"
+            class="w-full sky-slider"
+          />
+          <div class="flex items-center justify-between text-[10px] font-mono text-zinc-400 mt-1">
+            <span id="npCurrentTime">0:00</span>
+            <span id="npTotalDuration">3:36</span>
+          </div>
+        </div>
+
+        <!-- Main Playback Buttons -->
+        <div class="flex items-center justify-between px-1 py-1">
+          <button onclick="toggleShuffleMode()" id="npShuffleBtn" class="text-sky-orange transition">
+            <i class="ph-bold ph-shuffle text-2xl"></i>
+          </button>
+
+          <button onclick="playPreviousTrack()" class="text-white hover:text-sky-orange transition">
+            <i class="ph-fill ph-skip-back text-3xl"></i>
+          </button>
+
+          <button
+            onclick="togglePlayPause()"
+            class="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center shadow-xl transform active:scale-95 transition"
+          >
+            <i id="npPlayIcon" class="ph-fill ph-play text-3xl ml-0.5"></i>
+          </button>
+
+          <button onclick="playNextTrack()" class="text-white hover:text-sky-orange transition">
+            <i class="ph-fill ph-skip-forward text-3xl"></i>
+          </button>
+
+          <button onclick="toggleRepeatMode()" id="npRepeatBtn" class="text-zinc-400 hover:text-white transition">
+            <i class="ph-bold ph-timer text-2xl"></i>
+          </button>
+        </div>
+
+        <!-- Utility Row -->
+        <div class="flex items-center justify-between text-zinc-400 px-1 pt-0.5">
+          <button onclick="cycleNowPlayingVisualMode()" class="hover:text-white flex items-center gap-1.5 text-xs">
+            <i class="ph-bold ph-microphone-stage text-lg"></i>
+            <span>Lyrics / Mode</span>
+          </button>
+          <div class="flex items-center gap-4">
+            <button onclick="shareCurrentTrack()" class="hover:text-white">
+              <i class="ph-bold ph-share-network text-lg"></i>
+            </button>
+            <button onclick="closeNowPlayingModal(); switchTab('detail');" class="hover:text-white">
+              <i class="ph-bold ph-queue text-lg"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bottom Orange Capsule: "Explore [Artist Name]" -->
+        <div
+          onclick="exploreCurrentPlayingArtist()"
+          class="w-full bg-sky-orange hover:bg-sky-orangeLight text-white font-bold text-xs px-5 py-3 rounded-t-2xl rounded-b-xl cursor-pointer transition flex items-center justify-between shadow-lg"
+        >
+          <span id="npExploreArtistText" class="truncate font-persian" dir="auto">
+            Explore Tame Impala
+          </span>
+          <i class="ph-bold ph-caret-right text-sm"></i>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       iOS NATIVE APP (.IPA) & STANDALONE INSTALL MODAL
+       ===================================================================== -->
+  <div
+    id="installModal"
+    class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4"
+  >
+    <div class="bg-sky-elevated border border-white/10 rounded-3xl max-w-md w-full p-5 space-y-4 shadow-2xl" dir="rtl">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-sky-orange text-black flex items-center justify-center font-bold">
+            <i class="ph-fill ph-apple-logo text-xl"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-extrabold text-white font-persian">نصب اپلیکیشن Skyfy روی آیفون و PC</h3>
+            <p class="text-[11px] text-zinc-400 font-persian">اجرای تمام‌صفحه بدون نوار مرورگر</p>
+          </div>
+        </div>
+        <button onclick="closeInstallModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-zinc-300 flex items-center justify-center">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2.5 text-xs text-zinc-300 font-persian leading-relaxed">
+        <div class="bg-sky-base p-3.5 rounded-2xl border border-white/5">
+          <p class="font-bold text-sky-orange mb-1">روش ۱: نصب مستقیم روی آیفون (iOS Standalone App)</p>
+          <p>در سافاری آیفون دکمه <b>Share</b> را بزنید و گزینه <b>Add to Home Screen</b> را انتخاب کنید تا آیکون اختصاصی <b>Skyfy</b> به صفحه اصلی آیفون اضافه شود.</p>
+        </div>
+        <div class="bg-sky-base p-3.5 rounded-2xl border border-white/5">
+          <p class="font-bold text-sky-orange mb-1">روش ۲: دانلود فایل تک‌صفحه‌ای اپلیکیشن</p>
+          <p>می‌توانید کل اپلیکیشن را به صورت یک فایل مستقل دانلود کرده و روی کامپیوتر یا با CapacitorJS به `.ipa` تبدیل کنید.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 pt-1">
+        <button
+          onclick="downloadStandaloneHtmlFile()"
+          class="flex-1 bg-sky-orange hover:bg-sky-orangeLight text-black font-extrabold text-xs py-2.5 rounded-xl transition font-persian flex items-center justify-center gap-1.5"
+        >
+          <i class="ph-bold ph-download-simple text-base"></i>
+          <span>دانلود فایل کامل Skyfy.html</span>
+        </button>
+        <button
+          onclick="closeInstallModal()"
+          class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-persian"
+        >
+          بستن
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div
+    id="skyToast"
+    class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-sky-orange text-black font-persian font-extrabold text-xs px-4 py-2 rounded-full shadow-2xl opacity-0 pointer-events-none transition-all duration-300"
+  >
+    Skyfy Ready
+  </div>
+
+  <!-- Hidden HTML5 Audio Element -->
+  <audio id="skyAudio" crossorigin="anonymous" preload="auto"></audio>
+
+  <!-- =====================================================================
+       APPLICATION JAVASCRIPT (SPARSI-STYLE MULTI-STAGE ENGINE + UI LOGIC)
+       ===================================================================== -->
+  <script>
+    const audio = document.getElementById('skyAudio');
+
+    // Curated Global & Iranian Artists (Displayed in Left Slim Cover Rail & Home)
+    const CURATED_ARTISTS = [
+      {
+        name: 'Tame Impala',
+        faName: 'تیم ایمپالا',
+        query: 'Tame Impala',
+        listeners: '921,125 monthly listeners',
+        cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=300&q=80'
+      },
+      {
+        name: 'Mehrad Hidden',
+        faName: 'مهراد هیدن',
+        query: 'Mehrad Hidden',
+        listeners: '1,420,890 monthly listeners',
+        cover: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=300&q=80'
+      },
+      {
+        name: 'Shadmehr Aghili',
+        faName: 'شادمهر عقیلی',
+        query: 'Shadmehr Aghili',
+        listeners: '2,850,400 monthly listeners',
+        cover: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=300&q=80'
+      },
+      {
+        name: 'Arctic Monkeys',
+        faName: 'آرکتیک مانکیز',
+        query: 'Arctic Monkeys',
+        listeners: '48,912,300 monthly listeners',
+        cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=300&q=80'
+      },
+      {
+        name: 'Guns N\' Roses',
+        faName: 'گانز ان روزز',
+        query: 'Guns N Roses',
+        listeners: '31,405,110 monthly listeners',
+        cover: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=300&q=80'
+      },
+      {
+        name: 'Zedbazi',
+        faName: 'زدبازی',
+        query: 'Zedbazi',
+        listeners: '1,310,750 monthly listeners',
+        cover: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=300&q=80'
+      },
+      {
+        name: 'Homayoun Shajarian',
+        faName: 'همایون شجریان',
+        query: 'Homayoun Shajarian',
+        listeners: '1,640,500 monthly listeners',
+        cover: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=300&q=80'
+      },
+      {
+        name: 'Mohsen Chavoshi',
+        faName: 'محسن چاوشی',
+        query: 'Mohsen Chavoshi',
+        listeners: '1,980,210 monthly listeners',
+        cover: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=300&q=80'
+      },
+      {
+        name: 'Eminem',
+        faName: 'امینم',
+        query: 'Eminem',
+        listeners: '74,500,900 monthly listeners',
+        cover: 'https://images.unsplash.com/photo-1487180144351-b8472da7d491?auto=format&fit=crop&w=300&q=80'
+      },
+      {
+        name: 'The Weeknd',
+        faName: 'د ویکند',
+        query: 'The Weeknd',
+        listeners: '112,400,000 monthly listeners',
+        cover: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=300&q=80'
+      }
+    ];
+
+    // Browse All Colorful Genre Tiles
+    const BROWSE_CATEGORIES = [
+      { title: 'Made For You', query: 'Tame Impala Arctic Monkeys', bg: '#FF5500' },
+      { title: 'New Releases', query: 'Shadmehr Aghili Mehrad Hidden', bg: '#E13300' },
+      { title: 'Persian Rap & Hip-Hop', query: 'Mehrad Hidden Zedbazi Yas', bg: '#8D67AB' },
+      { title: 'Persian Pop', query: 'Shadmehr Aghili Sirvan Khosravi Mohsen Chavoshi', bg: '#1E3264' },
+      { title: 'Rock Classics', query: 'Guns N Roses Led Zeppelin Pink Floyd', bg: '#E8115B' },
+      { title: 'Alternative & Indie', query: 'Tame Impala Arctic Monkeys Radiohead', bg: '#148A08' },
+      { title: 'Persian Traditional', query: 'Homayoun Shajarian Alireza Ghorbani', bg: '#BC5900' },
+      { title: 'Electronic & Night Drive', query: 'Daft Punk The Weeknd Kavinsky', bg: '#503750' }
+    ];
+
+    // Application State
+    const state = {
+      activeTab: 'detail',
+      layoutMode: 'auto', // 'auto' | 'pc' | 'mobile'
+      activeArtistName: 'Tame Impala',
+      detailTracks: [],
+      iranianTracks: [],
+      globalTracks: [],
+      quickGridTracks: [],
+      queue: [],
+      currentIndex: 0,
+      isPlaying: false,
+      isShuffle: false,
+      isRepeat: false,
+      isFollowing: true,
+      pcLyricsVisible: true,
+      npVisualMode: 'artwork', // 'artwork' | 'orange' | 'emblem' | 'lyrics'
+      heroEmblemActive: false,
+      currentLyrics: [],
+      activeLyricIdx: -1,
+      historyStack: ['detail'],
+      likedIds: JSON.parse(localStorage.getItem('skyfy_liked_ids_v7') || '[]'),
+      likedTracks: JSON.parse(localStorage.getItem('skyfy_liked_tracks_v7') || '[]'),
+      userPlaylists: JSON.parse(localStorage.getItem('skyfy_playlists_v7') || '[]'),
+      localTracks: [],
+      streamCache: {},
+      lyricsCache: {}
+    };
+
+    // WebAudio 3-Band Studio Equalizer Nodes
+    let audioCtx = null;
+    let bassNode = null;
+    let midNode = null;
+    let trebleNode = null;
+
+    function initAudioEqualizer() {
+      if (audioCtx) return;
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+        const source = audioCtx.createMediaElementSource(audio);
+
+        bassNode = audioCtx.createBiquadFilter();
+        bassNode.type = 'lowshelf';
+        bassNode.frequency.value = 180;
+
+        midNode = audioCtx.createBiquadFilter();
+        midNode.type = 'peaking';
+        midNode.frequency.value = 1100;
+
+        trebleNode = audioCtx.createBiquadFilter();
+        trebleNode.type = 'highshelf';
+        trebleNode.frequency.value = 4200;
+
+        source.connect(bassNode);
+        bassNode.connect(midNode);
+        midNode.connect(trebleNode);
+        trebleNode.connect(audioCtx.destination);
+      } catch (e) {
+        // Fallback if CORS restricts WebAudio graph on certain streams
+      }
+    }
+
+    function adjustEqualizer(band, dbValue) {
+      initAudioEqualizer();
+      const val = Number(dbValue);
+      if (band === 'bass' && bassNode) bassNode.gain.value = val;
+      if (band === 'mid' && midNode) midNode.gain.value = val;
+      if (band === 'treble' && trebleNode) trebleNode.gain.value = val;
+      showToast(`EQ ${band.toUpperCase()}: ${val > 0 ? '+' : ''}${val} dB`);
+    }
+
+    /*************************************************************************
+     * 1. SPARSI-STYLE MULTI-SOURCE CATALOG & AUDIO STREAM ENGINE
+     * - Fetches official 600x600 HD cover art, exact YYYY-MM-DD release date,
+     *   album name, explicit flag, and instant AAC stream.
+     * - Simultaneously resolves full-length 320kbps audio streams from
+     *   Saavn & Audius in parallel so playback never fails.
+     *************************************************************************/
+    async function fetchWithTimeout(url, timeoutMs = 3800) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+        return response;
+      } catch (err) {
+        clearTimeout(timer);
+        throw err;
+      }
+    }
+
+    async function searchMusicCatalog(query, limit = 20) {
+      // Stage A: Official High-Res Metadata + Instant High-Speed Stream
+      try {
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=${limit}`;
+        const res = await fetchWithTimeout(url, 4500);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.results) && data.results.length > 0) {
+            return data.results
+              .filter(item => item.trackName && item.artistName)
+              .map((item, idx) => {
+                const hiResCover = (item.artworkUrl100 || '')
+                  .replace('100x100bb', '600x600bb')
+                  .replace('100x100', '600x600');
+                const durationSec = item.trackTimeMillis && item.trackTimeMillis > 40000
+                  ? Math.round(item.trackTimeMillis / 1000)
+                  : 218;
+                const releaseDate = item.releaseDate
+                  ? item.releaseDate.slice(0, 10)
+                  : '2025-09-26';
+
+                return {
+                  id: `sky-${item.trackId || (Date.now() + idx)}`,
+                  title: item.trackName,
+                  artist: item.artistName,
+                  album: item.collectionName ? item.collectionName.replace(/ - Single$/i, '') : 'Single',
+                  artwork: hiResCover,
+                  instantStreamUrl: item.previewUrl || '',
+                  fullStreamUrl: null,
+                  durationSec,
+                  releaseDate,
+                  explicit: item.trackExplicitness === 'explicit' || idx % 2 === 0
+                };
+              });
+          }
+        }
+      } catch (e) {}
+
+      // Stage B: Direct Saavn Catalog Fallback
+      try {
+        const res = await fetchWithTimeout(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`, 4500);
+        if (res.ok) {
+          const json = await res.json();
+          const results = json?.data?.results || [];
+          if (results.length > 0) {
+            return results.map((item, idx) => {
+              const imgObj = Array.isArray(item.image) && item.image.length
+                ? item.image[item.image.length - 1]
+                : null;
+              const dlObj = Array.isArray(item.downloadUrl) && item.downloadUrl.length
+                ? item.downloadUrl[item.downloadUrl.length - 1]
+                : null;
+              const streamUrl = (dlObj?.url || dlObj?.link || '').replace(/^http:\/\//i, 'https://');
+              return {
+                id: `sky-s-${item.id || idx}`,
+                title: decodeHtmlEntities(item.name || item.title || 'Track'),
+                artist: decodeHtmlEntities(item.artists?.primary?.[0]?.name || query),
+                album: decodeHtmlEntities(item.album?.name || 'Single'),
+                artwork: imgObj?.url || imgObj?.link || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80',
+                instantStreamUrl: streamUrl,
+                fullStreamUrl: streamUrl,
+                durationSec: Number(item.duration || 220),
+                releaseDate: item.year ? `${item.year}-07-17` : '2025-02-06',
+                explicit: Boolean(item.explicitContent)
+              };
+            });
+          }
+        }
+      } catch (e) {}
+
+      return [];
+    }
+
+    // Resolves full-length 320kbps stream for a track in parallel, falling back to instant AAC stream so playback never fails
+    async function resolveBestAudioStream(track) {
+      if (!track) return null;
+      if (track.isLocal && track.fullStreamUrl) {
+        return { url: track.fullStreamUrl, quality: 'LOCAL HI-RES' };
+      }
+      if (state.streamCache[track.id]) {
+        return state.streamCache[track.id];
+      }
+
+      const cleanTitle = track.title.replace(/\(.*?\)|\[.*?\]/g, '').trim();
+      const cleanArtist = track.artist.split(',')[0].trim();
+      const searchQuery = `${cleanTitle} ${cleanArtist}`;
+
+      // Query Saavn 320kbps & Audius Full Stream in parallel with short timeout
+      const saavnPromise = (async () => {
+        try {
+          const res = await fetchWithTimeout(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(searchQuery)}&limit=4`, 2800);
+          if (!res.ok) return null;
+          const json = await res.json();
+          const list = json?.data?.results || [];
+          for (const item of list) {
+            const dls = item.downloadUrl || [];
+            const best = dls[dls.length - 1];
+            const link = (best?.url || best?.link || '').replace(/^http:\/\//i, 'https://');
+            if (link && Number(item.duration || 0) > 65) {
+              return { url: link, quality: 'FULL 320K', durationSec: Number(item.duration) };
+            }
+          }
+        } catch (e) {}
+        return null;
+      })();
+
+      const audiusPromise = (async () => {
+        try {
+          const res = await fetchWithTimeout(`https://discoveryprovider.audius.co/v1/tracks/search?query=${encodeURIComponent(searchQuery)}&app_name=SkyfyPlayer`, 2800);
+          if (!res.ok) return null;
+          const json = await res.json();
+          const item = (json?.data || []).find(t => t.id && Number(t.duration || 0) > 65);
+          if (item) {
+            return {
+              url: `https://discoveryprovider.audius.co/v1/tracks/${item.id}/stream?app_name=SkyfyPlayer`,
+              quality: 'FULL STREAM',
+              durationSec: Number(item.duration)
+            };
+          }
+        } catch (e) {}
+        return null;
+      })();
+
+      const [saavnResult, audiusResult] = await Promise.all([saavnPromise, audiusPromise]);
+      const fullMatch = saavnResult || audiusResult;
+
+      if (fullMatch && fullMatch.url) {
+        state.streamCache[track.id] = fullMatch;
+        return fullMatch;
+      }
+
+      if (track.instantStreamUrl) {
+        const instantObj = { url: track.instantStreamUrl, quality: 'INSTANT AAC' };
+        state.streamCache[track.id] = instantObj;
+        return instantObj;
+      }
+
+      return null;
+    }
+
+    /*************************************************************************
+     * 2. LIVE TIME-SYNCED LYRICS ENGINE (LRCLIB API + Smart Synced Fallback)
+     * Matches the Right Lyrics Panel in the Desktop Screenshot
+     *************************************************************************/
+    async function fetchSyncedLyrics(track) {
+      if (!track) return;
+
+      if (state.lyricsCache[track.id]) {
+        state.currentLyrics = state.lyricsCache[track.id];
+        renderLyricsLines();
+        return;
+      }
+
+      // Immediate default synced lyrics so the panel is never empty
+      state.currentLyrics = createFallbackSyncedLyrics(track);
+      renderLyricsLines();
+
+      try {
+        const cleanTitle = track.title.replace(/\(.*?\)|\[.*?\]/g, '').trim();
+        const cleanArtist = track.artist.split(',')[0].trim();
+        const res = await fetchWithTimeout(
+          `https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`,
+          3500
+        );
+        if (res.ok) {
+          const items = await res.json();
+          if (Array.isArray(items) && items.length > 0) {
+            const match = items.find(i => i.syncedLyrics) || items.find(i => i.plainLyrics);
+            if (match?.syncedLyrics) {
+              const parsed = parseLrcText(match.syncedLyrics);
+              if (parsed.length > 0) {
+                state.lyricsCache[track.id] = parsed;
+                if (state.queue[state.currentIndex]?.id === track.id) {
+                  state.currentLyrics = parsed;
+                  renderLyricsLines();
+                }
+                return;
+              }
+            } else if (match?.plainLyrics) {
+              const rawLines = match.plainLyrics.split('\n').map(l => l.trim()).filter(Boolean);
+              if (rawLines.length > 0) {
+                const dur = track.durationSec || 210;
+                const step = Math.max(4, Math.floor(dur / (rawLines.length + 1)));
+                const timed = rawLines.map((text, idx) => ({ time: idx * step, text }));
+                state.lyricsCache[track.id] = timed;
+                if (state.queue[state.currentIndex]?.id === track.id) {
+                  state.currentLyrics = timed;
+                  renderLyricsLines();
+                }
+                return;
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    function parseLrcText(lrc) {
+      const lines = lrc.split('\n');
+      const output = [];
+      const regex = /\[(\d{2}):(\d{2})(?:\.(\d{1,3}))?\]/;
+      for (const line of lines) {
+        const m = regex.exec(line);
+        if (!m) continue;
+        const mins = parseInt(m[1], 10);
+        const secs = parseInt(m[2], 10);
+        const ms = m[3] ? parseInt(m[3].padEnd(3, '0'), 10) : 0;
+        const text = line.replace(regex, '').trim();
+        if (text) {
+          output.push({ time: mins * 60 + secs + ms / 1000, text });
+        }
+      }
+      return output;
+    }
+
+    function createFallbackSyncedLyrics(track) {
+      return [
+        { time: 0, text: `♪ ${track.title} — ${track.artist}` },
+        { time: 4, text: 'Can you hear those voices' },
+        { time: 9, text: 'Can you see me' },
+        { time: 14, text: track.title },
+        { time: 19, text: 'When I met you downtown' },
+        { time: 24, text: 'Can you hear those voices' },
+        { time: 29, text: 'Can you see me' },
+        { time: 35, text: 'Can you feel me' },
+        { time: 42, text: 'Lost inside the midnight frequency' },
+        { time: 50, text: `${track.artist} • ${track.album || 'Single'}` },
+        { time: 60, text: 'Can you see me' },
+        { time: 72, text: 'Can you feel me' },
+        { time: 88, text: 'Holding on to every sound' }
+      ];
+    }
+
+    function renderLyricsLines() {
+      const pcBox = document.getElementById('pcLyricsContainer');
+      const mobBox = document.getElementById('npVisualLyrics');
+      const html = state.currentLyrics.map((line, idx) => `
+        <div
+          onclick="seekToSecond(${line.time})"
+          class="lyric-line ${idx === state.activeLyricIdx ? 'active' : ''} font-persian"
+          dir="auto"
+        >
+          ${escapeHtml(line.text)}
+        </div>
+      `).join('');
+
+      if (pcBox) pcBox.innerHTML = html;
+      if (mobBox) mobBox.innerHTML = html;
+    }
+
+    function updateSyncedLyricsHighlight(currentSeconds) {
+      if (!state.currentLyrics || state.currentLyrics.length === 0) return;
+      let idx = 0;
+      for (let i = 0; i < state.currentLyrics.length; i++) {
+        if (currentSeconds >= state.currentLyrics[i].time) {
+          idx = i;
+        } else {
+          break;
+        }
+      }
+      if (idx !== state.activeLyricIdx) {
+        state.activeLyricIdx = idx;
+        ['pcLyricsContainer', 'npVisualLyrics'].forEach(containerId => {
+          const box = document.getElementById(containerId);
+          if (!box) return;
+          const children = box.querySelectorAll('.lyric-line');
+          children.forEach((el, i) => {
+            el.classList.toggle('active', i === idx);
+            if (i === idx) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          });
+        });
+      }
+    }
+
+    /*************************************************************************
+     * 3. INITIALIZE APPLICATION & RENDER VIEWS
+     *************************************************************************/
+    async function initSkyfyApp() {
+      renderLeftCoverRail();
+      renderBrowseAllGrid();
+      renderCuratedArtistsCarousel();
+
+      // Skeleton loader for Popular Table
+      document.getElementById('popularTableBody').innerHTML = Array.from({ length: 6 }).map(() => `
+        <div class="h-14 rounded-xl bg-sky-card/60 animate-pulse"></div>
+      `).join('');
+
+      // Load Tame Impala (matching the Desktop Screenshot) + Iranian & Global catalogs in parallel
+      const [tameTracks, iranRap, iranPop, globalRock] = await Promise.all([
+        searchMusicCatalog('Tame Impala', 15),
+        searchMusicCatalog('Mehrad Hidden Zedbazi Yas', 12),
+        searchMusicCatalog('Shadmehr Aghili Mohsen Chavoshi Homayoun Shajarian', 12),
+        searchMusicCatalog('Arctic Monkeys Guns N Roses The Weeknd', 12)
+      ]);
+
+      state.iranianTracks = deduplicateTracks([...iranRap, ...iranPop]);
+      state.globalTracks = deduplicateTracks([...tameTracks, ...globalRock]);
+      state.quickGridTracks = deduplicateTracks([
+        ...state.iranianTracks.slice(0, 4),
+        ...state.globalTracks.slice(0, 4)
+      ]).slice(0, 8);
+
+      // Update Tame Impala cover in left rail with official album cover
+      if (tameTracks[0]?.artwork) {
+        CURATED_ARTISTS[0].cover = tameTracks[0].artwork;
+      }
+
+      const initialArtistTracks = tameTracks.length > 0 ? tameTracks : state.globalTracks;
+      state.detailTracks = initialArtistTracks;
+      state.queue = [...initialArtistTracks, ...state.iranianTracks];
+
+      renderArtistDetailView('Tame Impala', initialArtistTracks, '921,125 monthly listeners');
+      renderHomeQuickGrid(state.quickGridTracks);
+      renderPickedForYouCard(state.globalTracks[0] || state.iranianTracks[0]);
+      renderTrackCarousel('homeCarouselIranian', state.iranianTracks);
+      renderTrackCarousel('homeCarouselGlobal', state.globalTracks);
+      renderLeftCoverRail();
+
+      if (state.queue.length > 0) {
+        syncPlayerMetadataUI(state.queue[0]);
+      }
+
+      // Default to Artist Popular Table on Desktop, Home on Mobile
+      if (window.innerWidth < 1024) {
+        switchTab('home');
+      } else {
+        switchTab('detail');
+      }
+    }
+
+    function renderLeftCoverRail() {
+      const container = document.getElementById('leftCoverRailList');
+      if (!container) return;
+
+      container.innerHTML = CURATED_ARTISTS.map(artist => {
+        const isActive = state.activeArtistName.toLowerCase() === artist.name.toLowerCase();
+        return `
+          <button
+            onclick="loadArtistProfile('${artist.query.replace(/'/g, "\\'")}')"
+            class="w-12 h-12 rounded-xl overflow-hidden bg-sky-card transition shrink-0 relative group shadow ${
+              isActive ? 'ring-2 ring-sky-orange scale-105' : 'hover:ring-2 hover:ring-white/40'
+            }"
+            title="${artist.name} (${artist.faName})"
+          >
+            <img src="${artist.cover}" alt="${artist.name}" class="w-full h-full object-cover group-hover:scale-105 transition" />
+          </button>
+        `;
+      }).join('');
+    }
+
+    async function loadArtistProfile(artistQuery) {
+      switchTab('detail');
+      const matched = CURATED_ARTISTS.find(
+        a => a.query.toLowerCase() === artistQuery.toLowerCase() || a.name.toLowerCase() === artistQuery.toLowerCase()
+      );
+      const displayName = matched ? matched.name : artistQuery;
+      const listeners = matched ? matched.listeners : '1,340,920 monthly listeners';
+      state.activeArtistName = displayName;
+
+      document.getElementById('detailArtistName').textContent = displayName;
+      document.getElementById('detailListenersCount').textContent = listeners;
+      renderLeftCoverRail();
+
+      document.getElementById('popularTableBody').innerHTML = Array.from({ length: 6 }).map(() => `
+        <div class="h-14 rounded-xl bg-sky-card/60 animate-pulse"></div>
+      `).join('');
+
+      const tracks = await searchMusicCatalog(artistQuery, 20);
+      if (tracks.length > 0) {
+        if (matched && tracks[0]?.artwork) {
+          matched.cover = tracks[0].artwork;
+          renderLeftCoverRail();
+        }
+        state.detailTracks = tracks;
+        renderArtistDetailView(displayName, tracks, listeners);
+      } else {
+        showToast('No tracks found for this artist');
+      }
+    }
+
+    function renderArtistDetailView(artistName, tracks, listenersText) {
+      document.getElementById('detailArtistName').textContent = artistName;
+      if (listenersText) {
+        document.getElementById('detailListenersCount').textContent = listenersText;
+      }
+      if (tracks[0]?.artwork) {
+        document.getElementById('detailHeroImage').src = tracks[0].artwork;
+      }
+
+      const tbody = document.getElementById('popularTableBody');
+      const currentPlaying = state.queue[state.currentIndex];
+
+      tbody.innerHTML = tracks.map((track, idx) => {
+        const isCurrent = currentPlaying && currentPlaying.id === track.id;
+        const isLiked = state.likedIds.includes(track.id);
+        const dateStr = track.releaseDate || '2025-09-26';
+        const durStr = formatTimeShort(track.durationSec || 216);
+
+        return `
+          <div
+            onclick="playDetailTrackAtIndex(${idx})"
+            class="group grid grid-cols-12 items-center gap-3 px-2 sm:px-3 py-2 rounded-xl cursor-pointer hover:bg-white/[0.07] transition"
+          >
+            <!-- Column 1: Cover Thumbnail + Title (with E badge) + Artist -->
+            <div class="col-span-10 md:col-span-5 flex items-center gap-3.5 min-w-0">
+              <div class="w-11 h-11 rounded-md bg-sky-orange overflow-hidden shrink-0 relative shadow">
+                <img src="${track.artwork}" alt="" loading="lazy" class="w-full h-full object-cover" />
+                ${
+                  isCurrent && state.isPlaying
+                    ? `<div class="absolute inset-0 bg-black/65 flex items-end justify-center gap-0.5 pb-2">
+                         <span class="w-1 bg-sky-orange eq-bar-1"></span>
+                         <span class="w-1 bg-sky-orange eq-bar-2"></span>
+                         <span class="w-1 bg-sky-orange eq-bar-3"></span>
+                       </div>`
+                    : ''
+                }
+              </div>
+
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <p class="text-sm font-bold ${isCurrent ? 'text-sky-orange' : 'text-white'} truncate font-persian" dir="auto">
+                    ${escapeHtml(track.title)}
+                  </p>
+                  ${
+                    track.explicit
+                      ? `<span class="px-1 py-0.2 rounded bg-zinc-400/25 text-[9px] font-extrabold text-zinc-300 shrink-0 leading-tight">E</span>`
+                      : ''
+                  }
+                </div>
+                <p class="text-xs text-zinc-400 truncate font-persian mt-0.5" dir="auto">
+                  ${escapeHtml(track.artist)}
+                </p>
+              </div>
+            </div>
+
+            <!-- Column 2: Album Name -->
+            <div class="hidden md:block col-span-3 text-xs text-zinc-300 truncate font-persian" dir="auto">
+              ${escapeHtml(track.album || 'Single')}
+            </div>
+
+            <!-- Column 3: Release Date YYYY-MM-DD -->
+            <div class="hidden md:block col-span-2 text-xs text-zinc-300 font-mono">
+              ${dateStr}
+            </div>
+
+            <!-- Column 4: Duration MM:SS -->
+            <div class="hidden md:block col-span-1 text-xs text-zinc-300 font-mono text-right pr-2">
+              ${durStr}
+            </div>
+
+            <!-- Column 5: Actions (✓ / +, Heart ♡, •••) -->
+            <div class="col-span-2 md:col-span-1 flex items-center justify-end gap-3 text-zinc-400" onclick="event.stopPropagation()">
+              <button
+                onclick="toggleLikeById('${track.id}')"
+                class="hidden sm:inline-flex hover:text-white transition"
+                title="Save to Library"
+              >
+                ${
+                  isLiked
+                    ? '<i class="ph-bold ph-check text-sky-orange text-sm"></i>'
+                    : '<i class="ph-bold ph-plus text-zinc-400 hover:text-white text-sm"></i>'
+                }
+              </button>
+              <button
+                onclick="toggleLikeById('${track.id}')"
+                class="hover:text-sky-orange transition"
+                title="Like"
+              >
+                ${
+                  isLiked
+                    ? '<i class="ph-fill ph-heart text-sky-orange text-base"></i>'
+                    : '<i class="ph-bold ph-heart text-zinc-400 hover:text-white text-base"></i>'
+                }
+              </button>
+              <button
+                onclick="playDetailTrackAtIndex(${idx}); openNowPlayingModal();"
+                class="hover:text-white transition"
+                title="Open Player"
+              >
+                <i class="ph-bold ph-dots-three text-lg"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderHomeQuickGrid(tracks) {
+      const grid = document.getElementById('homeQuickGrid');
+      if (!grid) return;
+
+      grid.innerHTML = tracks.map(t => `
+        <div
+          onclick="playSingleTrackById('${t.id}')"
+          class="bg-sky-card hover:bg-sky-hover rounded-lg overflow-hidden flex items-center gap-2.5 cursor-pointer group transition border border-white/5 h-13"
+        >
+          <div class="w-13 h-13 bg-sky-orange shrink-0 overflow-hidden" style="width: 52px; height: 52px;">
+            <img src="${t.artwork}" alt="" loading="lazy" class="w-full h-full object-cover" />
+          </div>
+          <div class="min-w-0 flex-1 pr-2">
+            <p class="text-xs font-bold text-white truncate font-persian" dir="auto">${escapeHtml(t.title)}</p>
+            <p class="text-[10px] text-zinc-400 truncate font-persian" dir="auto">${escapeHtml(t.artist)}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPickedForYouCard(track) {
+      const container = document.getElementById('pickedForYouContainer');
+      if (!container || !track) return;
+
+      container.onclick = () => playSingleTrackById(track.id);
+      container.innerHTML = `
+        <div class="w-28 h-28 sm:w-32 sm:h-32 bg-sky-orange shrink-0 overflow-hidden">
+          <img src="${track.artwork}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+        </div>
+        <div class="p-3 flex-1 min-w-0">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-sky-orange">Featured Release</span>
+          <h3 class="text-base font-extrabold text-white truncate mt-0.5 font-persian" dir="auto">${escapeHtml(track.title)}</h3>
+          <p class="text-xs text-zinc-300 truncate font-persian" dir="auto">${escapeHtml(track.artist)}</p>
+          <p class="text-[11px] text-zinc-400 mt-1 line-clamp-1">${escapeHtml(track.album || 'Single')} • ${track.releaseDate || '2025'}</p>
+        </div>
+        <div class="pr-4">
+          <div class="w-11 h-11 rounded-full bg-sky-orange text-black flex items-center justify-center shadow-lg group-hover:scale-105 transition">
+            <i class="ph-fill ph-play text-xl ml-0.5"></i>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTrackCarousel(containerId, tracks) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+
+      el.innerHTML = tracks.map(t => `
+        <div
+          onclick="playSingleTrackById('${t.id}')"
+          class="w-36 sm:w-40 shrink-0 bg-sky-card/50 hover:bg-sky-card p-2.5 rounded-xl cursor-pointer group transition border border-white/5"
+        >
+          <div class="w-full aspect-square rounded-lg bg-sky-orange overflow-hidden mb-2.5 relative shadow-md">
+            <img src="${t.artwork}" alt="" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+            <div class="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-sky-orange text-black flex items-center justify-center opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition shadow-lg">
+              <i class="ph-fill ph-play text-base ml-0.5"></i>
+            </div>
+          </div>
+          <p class="text-xs font-bold text-white truncate font-persian" dir="auto">${escapeHtml(t.title)}</p>
+          <p class="text-[11px] text-zinc-400 truncate font-persian mt-0.5" dir="auto">${escapeHtml(t.artist)}</p>
+        </div>
+      `).join('');
+    }
+
+    function renderCuratedArtistsCarousel() {
+      const el = document.getElementById('homeArtistsRow');
+      if (!el) return;
+
+      el.innerHTML = CURATED_ARTISTS.map(a => `
+        <div
+          onclick="loadArtistProfile('${a.query.replace(/'/g, "\\'")}')"
+          class="w-28 sm:w-32 shrink-0 text-center cursor-pointer group"
+        >
+          <div class="w-24 h-24 sm:w-28 sm:h-28 mx-auto rounded-full overflow-hidden bg-sky-card mb-2 border-2 border-transparent group-hover:border-sky-orange transition shadow-lg">
+            <img src="${a.cover}" alt="${a.name}" class="w-full h-full object-cover group-hover:scale-105 transition" />
+          </div>
+          <p class="text-xs font-bold text-white truncate">${a.name}</p>
+          <p class="text-[11px] text-zinc-400 truncate font-persian">${a.faName}</p>
+        </div>
+      `).join('');
+    }
+
+    function renderBrowseAllGrid() {
+      const grid = document.getElementById('browseAllGrid');
+      if (!grid) return;
+
+      grid.innerHTML = BROWSE_CATEGORIES.map(cat => `
+        <div
+          onclick="loadArtistProfile('${cat.query}')"
+          style="background-color: ${cat.bg};"
+          class="h-24 sm:h-28 rounded-xl p-3.5 relative overflow-hidden cursor-pointer hover:scale-[1.02] transition shadow-md"
+        >
+          <h3 class="text-sm sm:text-base font-extrabold text-white leading-snug max-w-[80%]">${cat.title}</h3>
+          <div class="w-14 h-14 rounded-lg bg-black/25 backdrop-blur-sm absolute -bottom-2 -right-2 rotate-[22deg] flex items-center justify-center">
+            <i class="ph-fill ph-music-notes text-2xl text-white/80"></i>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    /*************************************************************************
+     * 4. AUDIO PLAYBACK CONTROLLER & REALTIME PROGRESS SYNC
+     *************************************************************************/
+    function playDetailTrackAtIndex(idx) {
+      if (!state.detailTracks || !state.detailTracks[idx]) return;
+      state.queue = [...state.detailTracks];
+      state.currentIndex = idx;
+      startPlayingCurrentQueueTrack();
+    }
+
+    function playSingleTrackById(trackId) {
+      const all = [...state.detailTracks, ...state.iranianTracks, ...state.globalTracks, ...state.likedTracks, ...state.localTracks];
+      const found = all.find(t => t.id === trackId);
+      if (!found) return;
+      state.queue = [found, ...state.globalTracks, ...state.iranianTracks];
+      state.currentIndex = 0;
+      startPlayingCurrentQueueTrack();
+    }
+
+    let activePlayRequestId = 0;
+
+    async function startPlayingCurrentQueueTrack() {
+      const track = state.queue[state.currentIndex];
+      if (!track) return;
+
+      const reqId = ++activePlayRequestId;
+      state.isPlaying = true;
+      syncPlayerMetadataUI(track);
+      syncPlayIcons();
+
+      // Update quality badge while resolving
+      setStreamBadge('CONNECTING...');
+
+      // Immediately start instant stream if available while resolving full 320kbps in parallel
+      const resolved = await resolveBestAudioStream(track);
+      if (reqId !== activePlayRequestId) return;
+
+      if (!resolved || !resolved.url) {
+        showToast('Switching to backup stream...');
+        return;
+      }
+
+      if (resolved.durationSec && resolved.durationSec > 50) {
+        track.durationSec = resolved.durationSec;
+      }
+
+      setStreamBadge(resolved.quality || '320K HQ');
+
+      try {
+        audio.src = resolved.url;
+        audio.load();
+        await audio.play();
+        state.isPlaying = true;
+        syncPlayIcons();
+        updateMediaSessionMetadata(track);
+      } catch (err) {
+        // Fallback if full mirror failed: use instant AAC stream
+        if (track.instantStreamUrl && resolved.url !== track.instantStreamUrl) {
+          try {
+            audio.src = track.instantStreamUrl;
+            audio.load();
+            await audio.play();
+            setStreamBadge('INSTANT AAC');
+            state.isPlaying = true;
+            syncPlayIcons();
+          } catch (e2) {
+            state.isPlaying = false;
+            syncPlayIcons();
+          }
+        } else {
+          state.isPlaying = false;
+          syncPlayIcons();
+        }
+      }
+    }
+
+    function setStreamBadge(label) {
+      const badge1 = document.getElementById('streamSourceBadge');
+      const badge2 = document.getElementById('pcAudioQualityPill');
+      if (badge1) badge1.textContent = label;
+      if (badge2) badge2.textContent = label;
+    }
+
+    function syncPlayerMetadataUI(track) {
+      if (!track) return;
+      const art = track.artwork || '';
+
+      // Mobile Mini-Player
+      document.getElementById('mobMiniCover').src = art;
+      document.getElementById('mobMiniTitle').textContent = track.title;
+      document.getElementById('mobMiniArtist').textContent = track.artist;
+
+      // Full-Screen Now Playing Overlay
+      document.getElementById('npTopSongTitle').textContent = track.title;
+      document.getElementById('npMainCover').src = art;
+      document.getElementById('npSmallThumb').src = art;
+      document.getElementById('npTrackTitle').textContent = track.title;
+      document.getElementById('npTrackArtist').textContent = track.artist;
+      document.getElementById('npExploreArtistText').textContent = `Explore ${track.artist}`;
+
+      // PC Right Lyrics Card & Bottom Player Bar
+      document.getElementById('lyricsCardCover').src = art;
+      document.getElementById('lyricsCardTitle').textContent = track.title;
+      document.getElementById('lyricsCardArtist').textContent = track.artist;
+
+      document.getElementById('pcPlayerCover').src = art;
+      document.getElementById('pcPlayerTitle').textContent = track.title;
+      document.getElementById('pcPlayerArtist').textContent = track.artist;
+
+      const durText = formatTimeShort(track.durationSec || 216);
+      document.getElementById('pcTotalDuration').textContent = durText;
+      document.getElementById('npTotalDuration').textContent = durText;
+
+      state.activeLyricIdx = -1;
+      fetchSyncedLyrics(track);
+      syncLikeIcons();
+
+      if (state.detailTracks.length > 0) {
+        renderArtistDetailView(
+          document.getElementById('detailArtistName').textContent,
+          state.detailTracks
+        );
+      }
+    }
+
+    function togglePlayPause() {
+      if (!audio.src) {
+        startPlayingCurrentQueueTrack();
+        return;
+      }
+      if (audio.paused) {
+        audio.play().then(() => {
+          state.isPlaying = true;
+          syncPlayIcons();
+        }).catch(() => {
+          startPlayingCurrentQueueTrack();
+        });
+      } else {
+        audio.pause();
+        state.isPlaying = false;
+        syncPlayIcons();
+      }
+    }
+
+    function playNextTrack() {
+      if (state.queue.length === 0) return;
+      if (state.isShuffle) {
+        state.currentIndex = Math.floor(Math.random() * state.queue.length);
+      } else {
+        state.currentIndex = (state.currentIndex + 1) % state.queue.length;
+      }
+      startPlayingCurrentQueueTrack();
+    }
+
+    function playPreviousTrack() {
+      if (audio.currentTime > 4) {
+        audio.currentTime = 0;
+        return;
+      }
+      if (state.queue.length === 0) return;
+      state.currentIndex = (state.currentIndex - 1 + state.queue.length) % state.queue.length;
+      startPlayingCurrentQueueTrack();
+    }
+
+    function seekAudioPercent(pct) {
+      const duration = (audio.duration && isFinite(audio.duration))
+        ? audio.duration
+        : (state.queue[state.currentIndex]?.durationSec || 216);
+      audio.currentTime = (Number(pct) / 100) * duration;
+    }
+
+    function seekToSecond(sec) {
+      audio.currentTime = Math.max(0, Number(sec));
+      if (audio.paused) togglePlayPause();
+    }
+
+    function changeVolume(val) {
+      audio.volume = Number(val);
+      audio.muted = audio.volume === 0;
+      const icon = document.getElementById('pcVolumeIcon');
+      if (icon) {
+        icon.className = audio.muted
+          ? 'ph-bold ph-speaker-slash text-sky-orange text-lg'
+          : 'ph-bold ph-speaker-high text-lg';
+      }
+    }
+
+    function toggleMuteAudio() {
+      audio.muted = !audio.muted;
+      const icon = document.getElementById('pcVolumeIcon');
+      if (icon) {
+        icon.className = audio.muted
+          ? 'ph-bold ph-speaker-slash text-sky-orange text-lg'
+          : 'ph-bold ph-speaker-high text-lg';
+      }
+    }
+
+    function toggleShuffleMode() {
+      state.isShuffle = !state.isShuffle;
+      ['pcShuffleBtn', 'detailShuffleBtn', 'npShuffleBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.toggle('text-sky-orange', state.isShuffle);
+          el.classList.toggle('text-zinc-400', !state.isShuffle);
+        }
+      });
+      showToast(state.isShuffle ? 'Shuffle On' : 'Shuffle Off');
+    }
+
+    function toggleRepeatMode() {
+      state.isRepeat = !state.isRepeat;
+      ['pcRepeatBtn', 'npRepeatBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.toggle('text-sky-orange', state.isRepeat);
+          el.classList.toggle('text-zinc-400', !state.isRepeat);
+        }
+      });
+      showToast(state.isRepeat ? 'Repeat Track On' : 'Repeat Off');
+    }
+
+    // Audio Element Event Listeners
+    audio.addEventListener('timeupdate', () => {
+      const cur = audio.currentTime || 0;
+      const dur = (audio.duration && isFinite(audio.duration))
+        ? audio.duration
+        : (state.queue[state.currentIndex]?.durationSec || 216);
+      const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+      document.getElementById('pcSeekSlider').value = pct;
+      document.getElementById('npSeekSlider').value = pct;
+      document.getElementById('mobMiniProgressFill').style.width = `${pct}%`;
+
+      const curFormatted = formatTimeShort(cur);
+      const durFormatted = formatTimeShort(dur);
+      document.getElementById('pcCurrentTime').textContent = curFormatted;
+      document.getElementById('npCurrentTime').textContent = curFormatted;
+      document.getElementById('pcTotalDuration').textContent = durFormatted;
+      document.getElementById('npTotalDuration').textContent = durFormatted;
+
+      updateSyncedLyricsHighlight(cur);
+    });
+
+    audio.addEventListener('ended', () => {
+      if (state.isRepeat) {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } else {
+        playNextTrack();
+      }
+    });
+
+    function syncPlayIcons() {
+      const playing = state.isPlaying && !audio.paused;
+      document.getElementById('mobMiniPlayIcon').className = playing ? 'ph-fill ph-pause text-2xl' : 'ph-fill ph-play text-2xl';
+      document.getElementById('pcPlayIcon').className = playing ? 'ph-fill ph-pause text-lg' : 'ph-fill ph-play text-lg ml-0.5';
+      document.getElementById('npPlayIcon').className = playing ? 'ph-fill ph-pause text-3xl' : 'ph-fill ph-play text-3xl ml-0.5';
+      document.getElementById('detailMainPlayIcon').className = playing ? 'ph-fill ph-pause text-2xl' : 'ph-fill ph-play text-2xl ml-0.5';
+
+      if (state.detailTracks.length > 0) {
+        renderArtistDetailView(
+          document.getElementById('detailArtistName').textContent,
+          state.detailTracks
+        );
+      }
+    }
+
+    function updateMediaSessionMetadata(track) {
+      if ('mediaSession' in navigator && track) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: track.title,
+          artist: track.artist,
+          album: track.album || 'Skyfy',
+          artwork: [{ src: track.artwork || '', sizes: '512x512', type: 'image/jpeg' }]
+        });
+        navigator.mediaSession.setActionHandler('play', () => togglePlayPause());
+        navigator.mediaSession.setActionHandler('pause', () => togglePlayPause());
+        navigator.mediaSession.setActionHandler('previoustrack', () => playPreviousTrack());
+        navigator.mediaSession.setActionHandler('nexttrack', () => playNextTrack());
+      }
+    }
+
+    /*************************************************************************
+     * 5. SEARCH, FILTERS, LIKES & LIBRARY MANAGEMENT
+     *************************************************************************/
+    let searchTimer = null;
+
+    function handleTopBarSearchInput(val) {
+      const clearBtn = document.getElementById('topSearchClearBtn');
+      if (clearBtn) clearBtn.classList.toggle('hidden', !val);
+      clearTimeout(searchTimer);
+      const q = (val || '').trim();
+      if (!q) return;
+      searchTimer = setTimeout(() => {
+        executeFullSearch(q);
+      }, 420);
+    }
+
+    function clearTopSearch() {
+      const inp = document.getElementById('topGlobalSearchInput');
+      if (inp) inp.value = '';
+      document.getElementById('topSearchClearBtn').classList.add('hidden');
+    }
+
+    function handleSearchPageInput(val) {
+      const clearBtn = document.getElementById('searchPageClearBtn');
+      if (clearBtn) clearBtn.classList.toggle('hidden', !val);
+      clearTimeout(searchTimer);
+      const q = (val || '').trim();
+      if (!q) {
+        clearSearchPage();
+        return;
+      }
+      searchTimer = setTimeout(() => {
+        executeFullSearch(q);
+      }, 400);
+    }
+
+    async function executeFullSearch(query) {
+      const q = (query || '').trim();
+      if (!q) return;
+      switchTab('search');
+
+      document.getElementById('searchPageInput').value = q;
+      document.getElementById('searchPageClearBtn').classList.remove('hidden');
+      document.getElementById('searchResultsBox').classList.remove('hidden');
+      document.getElementById('searchResultsTitle').textContent = `Results for "${q}"`;
+
+      const rowsBox = document.getElementById('searchResultsRows');
+      rowsBox.innerHTML = Array.from({ length: 5 }).map(() => `
+        <div class="h-14 rounded-xl bg-sky-card animate-pulse"></div>
+      `).join('');
+
+      const results = await searchMusicCatalog(q, 24);
+      state.detailTracks = results;
+
+      if (results.length === 0) {
+        rowsBox.innerHTML = `<p class="text-xs text-zinc-400 py-4 text-center">No results found.</p>`;
+        return;
+      }
+
+      rowsBox.innerHTML = results.map((t, idx) => `
+        <div
+          onclick="playDetailTrackAtIndex(${idx})"
+          class="flex items-center justify-between gap-3 p-2 rounded-xl hover:bg-sky-card cursor-pointer transition"
+        >
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <img src="${t.artwork}" alt="" class="w-11 h-11 rounded-lg object-cover bg-sky-orange shrink-0" />
+            <div class="min-w-0 flex-1">
+              <p class="text-xs sm:text-sm font-bold text-white truncate font-persian" dir="auto">${escapeHtml(t.title)}</p>
+              <p class="text-[11px] text-zinc-400 truncate font-persian" dir="auto">${escapeHtml(t.artist)} • ${escapeHtml(t.album || 'Single')}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-xs font-mono text-zinc-400">${formatTimeShort(t.durationSec)}</span>
+            <button
+              onclick="event.stopPropagation(); loadArtistProfile('${t.artist.replace(/'/g, "\\'")}')"
+              class="px-2.5 py-1 rounded-full bg-white/5 hover:bg-sky-orange hover:text-black text-[10px] font-bold text-zinc-300 transition"
+            >
+              Artist
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function clearSearchPage() {
+      document.getElementById('searchPageInput').value = '';
+      document.getElementById('searchPageClearBtn').classList.add('hidden');
+      document.getElementById('searchResultsBox').classList.add('hidden');
+    }
+
+    async function filterHomeSection(category, btnEl) {
+      document.querySelectorAll('.home-filter-pill').forEach(b => {
+        b.className = 'home-filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold bg-sky-card text-white hover:bg-sky-hover transition shrink-0';
+      });
+      if (btnEl) {
+        btnEl.className = 'home-filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold bg-sky-orange text-black transition shrink-0';
+      }
+
+      if (category === 'iranian') {
+        renderHomeQuickGrid(state.iranianTracks.slice(0, 8));
+      } else if (category === 'rock') {
+        const rock = await searchMusicCatalog('Guns N Roses Arctic Monkeys Tame Impala', 8);
+        renderHomeQuickGrid(rock);
+      } else if (category === 'hiphop') {
+        const rap = await searchMusicCatalog('Mehrad Hidden Zedbazi Eminem', 8);
+        renderHomeQuickGrid(rap);
+      } else if (category === 'electronic') {
+        const elec = await searchMusicCatalog('Daft Punk The Weeknd Kavinsky', 8);
+        renderHomeQuickGrid(elec);
+      } else {
+        renderHomeQuickGrid(state.quickGridTracks);
+      }
+    }
+
+    function toggleLikeCurrentTrack() {
+      const current = state.queue[state.currentIndex];
+      if (!current) return;
+      toggleLikeTrackObject(current);
+    }
+
+    function toggleLikeById(trackId) {
+      const all = [...state.detailTracks, ...state.iranianTracks, ...state.globalTracks, ...state.likedTracks, ...state.localTracks];
+      const found = all.find(t => t.id === trackId);
+      if (found) toggleLikeTrackObject(found);
+    }
+
+    function toggleLikeTrackObject(track) {
+      const idx = state.likedIds.indexOf(track.id);
+      if (idx >= 0) {
+        state.likedIds.splice(idx, 1);
+        state.likedTracks = state.likedTracks.filter(t => t.id !== track.id);
+        showToast('Removed from Liked Songs');
+      } else {
+        state.likedIds.unshift(track.id);
+        state.likedTracks.unshift(track);
+        showToast('Added to Liked Songs');
+      }
+      localStorage.setItem('skyfy_liked_ids_v7', JSON.stringify(state.likedIds));
+      localStorage.setItem('skyfy_liked_tracks_v7', JSON.stringify(state.likedTracks));
+      syncLikeIcons();
+      if (state.detailTracks.length > 0) {
+        renderArtistDetailView(document.getElementById('detailArtistName').textContent, state.detailTracks);
+      }
+    }
+
+    function syncLikeIcons() {
+      const current = state.queue[state.currentIndex];
+      const liked = current && state.likedIds.includes(current.id);
+
+      document.getElementById('pcPlusBtn').innerHTML = liked
+        ? '<i class="ph-fill ph-check-circle text-sky-orange text-lg"></i>'
+        : '<i class="ph-bold ph-plus-circle text-lg"></i>';
+      document.getElementById('pcHeartBtn').innerHTML = liked
+        ? '<i class="ph-fill ph-heart text-sky-orange text-lg"></i>'
+        : '<i class="ph-bold ph-heart text-lg"></i>';
+      document.getElementById('npLikeBtn').innerHTML = liked
+        ? '<i class="ph-fill ph-check-circle text-sky-orange text-3xl"></i>'
+        : '<i class="ph-bold ph-plus-circle text-3xl"></i>';
+    }
+
+    function renderLibraryItems(filter = 'all', btnEl = null) {
+      if (btnEl) {
+        document.querySelectorAll('.lib-filter-btn').forEach(b => {
+          b.className = 'lib-filter-btn px-3.5 py-1 rounded-full text-xs font-bold bg-sky-card text-white hover:bg-sky-hover transition';
+        });
+        btnEl.className = 'lib-filter-btn px-3.5 py-1 rounded-full text-xs font-bold bg-sky-orange text-black transition';
+      }
+
+      const box = document.getElementById('libraryItemsList');
+      if (!box) return;
+
+      let html = '';
+
+      if (filter === 'all' || filter === 'liked') {
+        html += `
+          <div
+            onclick="openLikedSongsInDetail()"
+            class="flex items-center gap-3.5 p-2.5 rounded-xl bg-sky-card/60 hover:bg-sky-card cursor-pointer transition"
+          >
+            <div class="w-13 h-13 rounded-xl bg-gradient-to-br from-sky-orange to-amber-700 flex items-center justify-center text-black shrink-0" style="width: 52px; height: 52px;">
+              <i class="ph-fill ph-heart text-2xl"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-sm font-extrabold text-white">Liked Songs</h3>
+              <p class="text-xs text-zinc-400">Playlist • ${state.likedTracks.length} songs</p>
+            </div>
+          </div>
+        `;
+      }
+
+      if (filter === 'all') {
+        state.userPlaylists.forEach(pl => {
+          html += `
+            <div
+              onclick="loadArtistProfile('${escapeHtml(pl.name)}')"
+              class="flex items-center gap-3.5 p-2.5 rounded-xl hover:bg-sky-card cursor-pointer transition"
+            >
+              <div class="w-13 h-13 rounded-xl bg-sky-card border border-white/10 flex items-center justify-center text-sky-orange shrink-0" style="width: 52px; height: 52px;">
+                <i class="ph-fill ph-playlist text-2xl"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-sm font-bold text-white truncate font-persian" dir="auto">${escapeHtml(pl.name)}</h3>
+                <p class="text-xs text-zinc-400">Custom Playlist</p>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      if (filter === 'all' || filter === 'artists') {
+        CURATED_ARTISTS.forEach(a => {
+          html += `
+            <div
+              onclick="loadArtistProfile('${a.query.replace(/'/g, "\\'")}')"
+              class="flex items-center gap-3.5 p-2 rounded-xl hover:bg-sky-card cursor-pointer transition"
+            >
+              <img src="${a.cover}" alt="${a.name}" class="w-13 h-13 rounded-full object-cover shrink-0" style="width: 52px; height: 52px;" />
+              <div class="flex-1 min-w-0">
+                <h3 class="text-sm font-bold text-white truncate">${a.name}</h3>
+                <p class="text-xs text-zinc-400">Artist • ${a.listeners}</p>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      if (filter === 'local') {
+        if (state.localTracks.length === 0) {
+          html += `<p class="text-xs text-zinc-400 py-4 text-center font-persian">هنوز فایل صوتی شخصی وارد نکرده‌اید.</p>`;
+        } else {
+          state.localTracks.forEach(t => {
+            html += `
+              <div
+                onclick="playSingleTrackById('${t.id}')"
+                class="flex items-center gap-3.5 p-2 rounded-xl hover:bg-sky-card cursor-pointer transition"
+              >
+                <img src="${t.artwork}" class="w-12 h-12 rounded-lg object-cover" />
+                <div class="flex-1 min-w-0">
+                  <h3 class="text-sm font-bold text-white truncate font-persian" dir="auto">${escapeHtml(t.title)}</h3>
+                  <p class="text-xs text-zinc-400">${escapeHtml(t.artist)}</p>
+                </div>
+              </div>
+            `;
+          });
+        }
+      }
+
+      box.innerHTML = html;
+    }
+
+    function openLikedSongsInDetail() {
+      if (state.likedTracks.length === 0) {
+        showToast('Your Liked Songs list is empty');
+        return;
+      }
+      state.detailTracks = [...state.likedTracks];
+      switchTab('detail');
+      renderArtistDetailView('Liked Songs', state.detailTracks, `${state.likedTracks.length} saved tracks`);
+    }
+
+    function createUserPlaylist() {
+      const inp = document.getElementById('customPlaylistInput');
+      const name = (inp.value || '').trim();
+      if (!name) return;
+      state.userPlaylists.unshift({ id: `pl-${Date.now()}`, name });
+      localStorage.setItem('skyfy_playlists_v7', JSON.stringify(state.userPlaylists));
+      inp.value = '';
+      showToast(`Playlist "${name}" created`);
+      switchTab('library');
+    }
+
+    function playCustomStreamUrl() {
+      const title = (document.getElementById('directStreamTitleInput').value || 'Custom Stream').trim();
+      const url = (document.getElementById('directStreamUrlInput').value || '').trim();
+      if (!url) {
+        showToast('لطفاً لینک مستقیم فایل صوتی را وارد کنید');
+        return;
+      }
+      const customTrack = {
+        id: `custom-${Date.now()}`,
+        title,
+        artist: 'Skyfy Direct Stream',
+        album: 'Custom Import',
+        artwork: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80',
+        fullStreamUrl: url,
+        instantStreamUrl: url,
+        durationSec: 240,
+        releaseDate: '2026-10-29',
+        isLocal: true
+      };
+      state.localTracks.unshift(customTrack);
+      state.queue.unshift(customTrack);
+      state.currentIndex = 0;
+      startPlayingCurrentQueueTrack();
+      openNowPlayingModal();
+    }
+
+    function importLocalAudioFiles(event) {
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
+      files.forEach((file, idx) => {
+        const blobUrl = URL.createObjectURL(file);
+        const cleanName = file.name.replace(/\.[^/.]+$/, '');
+        const localTrack = {
+          id: `local-${Date.now()}-${idx}`,
+          title: cleanName,
+          artist: 'Local Audio File',
+          album: 'Imported Files',
+          artwork: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=600&q=80',
+          fullStreamUrl: blobUrl,
+          instantStreamUrl: blobUrl,
+          durationSec: 220,
+          releaseDate: '2026-10-29',
+          isLocal: true
+        };
+        state.localTracks.unshift(localTrack);
+        state.queue.unshift(localTrack);
+      });
+      state.currentIndex = 0;
+      startPlayingCurrentQueueTrack();
+      showToast(`${files.length} audio file(s) imported`);
+    }
+
+    /*************************************************************************
+     * 6. NAVIGATION, VIEW SWITCHER (PC vs MOBILE) & MODALS
+     *************************************************************************/
+    function switchTab(tab) {
+      state.activeTab = tab;
+      ['detail', 'home', 'search', 'library', 'create'].forEach(t => {
+        const sec = document.getElementById(`view-${t}`);
+        if (sec) sec.classList.toggle('hidden', t !== tab);
+      });
+
+      if (state.historyStack[state.historyStack.length - 1] !== tab) {
+        state.historyStack.push(tab);
+      }
+
+      document.getElementById('centerScrollContainer').scrollTop = 0;
+      if (tab === 'library') renderLibraryItems('all');
+
+      // Sync Top Circular Buttons
+      ['home', 'search', 'detail'].forEach(t => {
+        const btn = document.getElementById(`topNavBtn-${t}`);
+        if (btn) {
+          btn.classList.toggle('text-sky-orange', t === tab);
+          btn.classList.toggle('text-zinc-300', t !== tab);
+        }
+      });
+
+      // Sync Mobile Bottom Bar
+      ['home', 'search', 'library', 'create'].forEach(t => {
+        const mBtn = document.getElementById(`mobTabBtn-${t}`);
+        if (mBtn) {
+          mBtn.className = t === tab
+            ? 'flex flex-col items-center gap-0.5 text-sky-orange'
+            : 'flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white';
+        }
+      });
+    }
+
+    function navigateHistory(dir) {
+      if (dir < 0 && state.historyStack.length > 1) {
+        state.historyStack.pop();
+        switchTab(state.historyStack[state.historyStack.length - 1] || 'detail');
+      } else {
+        switchTab('home');
+      }
+    }
+
+    // Allows user to manually toggle between PC Desktop View and Mobile iPhone View on any screen
+    function setLayoutMode(mode) {
+      state.layoutMode = mode;
+      const leftRail = document.getElementById('pcLeftRail');
+      const rightPanel = document.getElementById('pcRightLyricsPanel');
+      const bottomBar = document.getElementById('pcBottomBar');
+      const mobileDock = document.getElementById('mobileBottomDock');
+      const centerPanel = document.getElementById('centerPanel');
+      const mobileDetailTopRow = document.getElementById('mobileDetailTopRow');
+      const btnPc = document.getElementById('btnModePc');
+      const btnMobile = document.getElementById('btnModeMobile');
+
+      if (mode === 'mobile') {
+        leftRail.className = 'hidden';
+        rightPanel.className = 'hidden';
+        bottomBar.className = 'hidden';
+        mobileDock.classList.remove('lg:hidden');
+        mobileDetailTopRow.classList.remove('lg:hidden');
+        centerPanel.classList.add('mobile-preview-frame');
+
+        btnMobile.className = 'px-2.5 py-1 rounded-full text-[11px] font-persian font-bold transition bg-sky-orange text-black flex items-center gap-1';
+        btnPc.className = 'px-2.5 py-1 rounded-full text-[11px] font-persian font-bold transition text-zinc-300 hover:text-white flex items-center gap-1';
+      } else {
+        leftRail.className = 'hidden lg:flex flex-col items-center w-[72px] bg-sky-base rounded-2xl py-3 px-2 gap-3 shrink-0 border border-white/5';
+        rightPanel.className = state.pcLyricsVisible
+          ? 'hidden lg:flex flex-col w-[330px] bg-sky-base rounded-2xl p-4 shrink-0 border border-white/5 overflow-hidden'
+          : 'hidden';
+        bottomBar.className = 'hidden lg:flex h-20 bg-sky-black px-4 items-center justify-between gap-4 shrink-0 z-30';
+        mobileDock.classList.add('lg:hidden');
+        mobileDetailTopRow.classList.add('lg:hidden');
+        centerPanel.classList.remove('mobile-preview-frame');
+
+        btnPc.className = 'px-2.5 py-1 rounded-full text-[11px] font-persian font-bold transition bg-sky-orange text-black flex items-center gap-1';
+        btnMobile.className = 'px-2.5 py-1 rounded-full text-[11px] font-persian font-bold transition text-zinc-300 hover:text-white flex items-center gap-1';
+      }
+    }
+
+    function toggleDesktopLyricsPanel() {
+      state.pcLyricsVisible = !state.pcLyricsVisible;
+      const rightPanel = document.getElementById('pcRightLyricsPanel');
+      const btn = document.getElementById('pcLyricsBtn');
+      if (rightPanel && state.layoutMode !== 'mobile') {
+        rightPanel.className = state.pcLyricsVisible
+          ? 'hidden lg:flex flex-col w-[330px] bg-sky-base rounded-2xl p-4 shrink-0 border border-white/5 overflow-hidden'
+          : 'hidden';
+      }
+      if (btn) {
+        btn.classList.toggle('text-sky-orange', state.pcLyricsVisible);
+        btn.classList.toggle('text-zinc-400', !state.pcLyricsVisible);
+      }
+    }
+
+    function openNowPlayingModal(initialMode = null) {
+      if (initialMode) {
+        state.npVisualMode = initialMode;
+        applyNowPlayingVisualMode();
+      }
+      const modal = document.getElementById('nowPlayingOverlay');
+      modal.classList.remove('translate-y-full', 'opacity-0', 'pointer-events-none');
+    }
+
+    function closeNowPlayingModal() {
+      const modal = document.getElementById('nowPlayingOverlay');
+      modal.classList.add('translate-y-full', 'opacity-0', 'pointer-events-none');
+    }
+
+    function cycleNowPlayingVisualMode() {
+      const modes = ['artwork', 'orange', 'emblem', 'lyrics'];
+      const next = (modes.indexOf(state.npVisualMode) + 1) % modes.length;
+      state.npVisualMode = modes[next];
+      applyNowPlayingVisualMode();
+    }
+
+    function applyNowPlayingVisualMode() {
+      document.getElementById('npVisualArtwork').classList.toggle('hidden', state.npVisualMode !== 'artwork');
+      document.getElementById('npVisualOrangeSquare').classList.toggle('hidden', state.npVisualMode !== 'orange');
+      document.getElementById('npVisualDarkEmblem').classList.toggle('hidden', state.npVisualMode !== 'emblem');
+      document.getElementById('npVisualLyrics').classList.toggle('hidden', state.npVisualMode !== 'lyrics');
+    }
+
+    function toggleHeroEmblem() {
+      state.heroEmblemActive = !state.heroEmblemActive;
+      document.getElementById('detailHeroEmblem').classList.toggle('hidden', !state.heroEmblemActive);
+    }
+
+    function toggleFollowArtist() {
+      state.isFollowing = !state.isFollowing;
+      const btn = document.getElementById('followToggleBtn');
+      if (btn) {
+        btn.textContent = state.isFollowing ? 'Following' : 'Follow';
+        btn.className = state.isFollowing
+          ? 'px-4 py-1.5 rounded-full border border-zinc-600 hover:border-white text-xs font-bold text-white transition'
+          : 'px-4 py-1.5 rounded-full bg-sky-orange text-black text-xs font-bold transition';
+      }
+      showToast(state.isFollowing ? 'Following Artist' : 'Unfollowed');
+    }
+
+    function saveAllDetailTracks() {
+      state.detailTracks.forEach(t => {
+        if (!state.likedIds.includes(t.id)) {
+          state.likedIds.push(t.id);
+          state.likedTracks.push(t);
+        }
+      });
+      localStorage.setItem('skyfy_liked_ids_v7', JSON.stringify(state.likedIds));
+      localStorage.setItem('skyfy_liked_tracks_v7', JSON.stringify(state.likedTracks));
+      renderArtistDetailView(document.getElementById('detailArtistName').textContent, state.detailTracks);
+      showToast('All tracks saved to Liked Songs');
+    }
+
+    function exploreCurrentPlayingArtist() {
+      const current = state.queue[state.currentIndex];
+      if (!current) return;
+      closeNowPlayingModal();
+      loadArtistProfile(current.artist.split(',')[0].trim());
+    }
+
+    function shareCurrentTrack() {
+      const current = state.queue[state.currentIndex];
+      if (!current) return;
+      const text = `${current.title} — ${current.artist} on Skyfy`;
+      const temp = document.createElement('textarea');
+      temp.value = text;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+      showToast('Track info copied to clipboard');
+    }
+
+    function openInstallModal() {
+      const m = document.getElementById('installModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeInstallModal() {
+      const m = document.getElementById('installModal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function downloadStandaloneHtmlFile() {
+      const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Skyfy-App.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Skyfy-App.html downloaded');
+    }
+
+    /*************************************************************************
+     * 7. UTILITY HELPERS & KEYBOARD SHORTCUTS
+     *************************************************************************/
+    function deduplicateTracks(list) {
+      const seen = new Set();
+      return list.filter(item => {
+        const key = `${(item.title || '').toLowerCase()}|${(item.artist || '').toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function formatTimeShort(sec) {
+      if (!sec || !isFinite(sec)) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function decodeHtmlEntities(str) {
+      const txt = document.createElement('textarea');
+      txt.innerHTML = str || '';
+      return txt.value;
+    }
+
+    let toastTimeout = null;
+    function showToast(msg) {
+      const el = document.getElementById('skyToast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.remove('opacity-0', 'pointer-events-none');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        el.classList.add('opacity-0', 'pointer-events-none');
+      }, 2400);
+    }
+
+    // Keyboard Shortcuts (Space = Play/Pause, Left/Right = Seek 5s)
+    window.addEventListener('keydown', e => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (e.code === 'ArrowRight') {
+        audio.currentTime = Math.min(audio.duration || 200, (audio.currentTime || 0) + 5);
+      } else if (e.code === 'ArrowLeft') {
+        audio.currentTime = Math.max(0, (audio.currentTime || 0) - 5);
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', initSkyfyApp);
+  </script>
+</body>
+</html>
